@@ -187,7 +187,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + pallet_uniques::Config<Self::UniquesInstance> {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		/// 指定一个ID类型，申请众筹时，需要传入一个唯一ID值。
+	
+		///  To control certain logic in admin
 		type CreateOrigin: EnsureOrigin<Self::Origin>;
 
 		/// To control certain logic, a specific role is required to operate.

@@ -8,7 +8,7 @@ members = [
     'pallets/identity-extra',
     'pallets/support',
     'pallets/unique-id',
-    'pallets/sport-tools',
+    'pallets/vfe',
     'pallets/currencies',
     'pallets/buyback',
     'runtime/*',

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::*;
-use crate as pallet_sport_tools;
+use crate as pallet_vfe;
 use frame_support::{parameter_types, PalletId};
 use frame_support_test::TestRandomness;
 use frame_system as system;
@@ -39,7 +39,7 @@ frame_support::construct_runtime!(
 		Uniques: pallet_uniques::{Pallet, Call, Storage, Event<T>},
 		SportUniques: pallet_uniques::<Instance1>::{Pallet, Call, Storage, Event<T>},
 		UniqueId: pallet_unique_id::{Pallet, Storage},
-		Sport: pallet_sport_tools::{Pallet, Call, Storage, Event<T>},
+		Sport: pallet_vfe::{Pallet, Call, Storage, Event<T>},
 
 	}
 );
@@ -230,7 +230,7 @@ parameter_types! {
 }
 
 
-impl pallet_sport_tools::Config for Test {
+impl pallet_vfe::Config for Test {
 	type Event = Event;
 	type CreateOrigin = EnsureProducer<Self::AccountId>;
 	type RoleOrigin = EnsureProducer<Self::AccountId>;

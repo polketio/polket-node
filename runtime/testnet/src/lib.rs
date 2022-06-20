@@ -635,7 +635,7 @@ parameter_types! {
 }
 
 
-impl pallet_sport_tools::Config for Runtime {
+impl pallet_vfe::Config for Runtime {
 	type Event = Event;
 	type CreateOrigin = frame_system::EnsureRoot<AccountId>;
 	type RoleOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
@@ -696,7 +696,7 @@ construct_runtime!(
 		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
 		Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
-		SportTool: pallet_sport_tools::{Pallet, Call, Storage, Event<T>},
+		SportTool: pallet_vfe::{Pallet, Call, Storage, Event<T>},
 	}
 );
 

@@ -3981,33 +3981,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-sport-tools"
-version = "0.1.0"
-dependencies = [
- "bitcoin_hashes",
- "blake2-rfc",
- "frame-benchmarking",
- "frame-support",
- "frame-support-test",
- "frame-system",
- "hex",
- "num-integer",
- "pallet-assets",
- "pallet-balances",
- "pallet-support",
- "pallet-unique-id",
- "pallet-uniques",
- "parity-scale-codec",
- "rust_decimal",
- "rust_decimal_macros",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?tag=monthly-2021-11#26d69bcbe26f6b463e9374e1b1c54c3067fb6131"
@@ -4199,6 +4172,33 @@ dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-vfe"
+version = "0.1.0"
+dependencies = [
+ "bitcoin_hashes",
+ "blake2-rfc",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-support-test",
+ "frame-system",
+ "hex",
+ "num-integer",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-support",
+ "pallet-unique-id",
+ "pallet-uniques",
+ "parity-scale-codec",
+ "rust_decimal",
+ "rust_decimal_macros",
  "scale-info",
  "sp-core",
  "sp-io",
@@ -4610,7 +4610,6 @@ dependencies = [
  "pallet-multisig",
  "pallet-randomness-collective-flip",
  "pallet-session",
- "pallet-sport-tools",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-sudo",
@@ -4623,6 +4622,7 @@ dependencies = [
  "pallet-unique-id",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-vfe",
  "parity-scale-codec",
  "polket-primitives",
  "runtime-common",
