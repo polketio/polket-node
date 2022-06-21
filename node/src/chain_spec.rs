@@ -277,19 +277,19 @@ fn polket_staging_config_genesis(wasm_binary: &[u8]) -> GenesisConfig {
 		wasm_binary,
 		vec![
 			(
-				hex!["3a13a1fa417197f7843364bd02b22a733800247a8570e3a53fc4f4b1fe501573"].into(),
-				hex!["3a13a1fa417197f7843364bd02b22a733800247a8570e3a53fc4f4b1fe501573"].into(),
-				hex!["3a13a1fa417197f7843364bd02b22a733800247a8570e3a53fc4f4b1fe501573"]
+				hex!["aa20c176700afd883bb8f157bc0a9e83a8bb1c52c3b20d8f7d4d3dab771d5d60"].into(),
+				hex!["aa20c176700afd883bb8f157bc0a9e83a8bb1c52c3b20d8f7d4d3dab771d5d60"].into(),
+				hex!["aa20c176700afd883bb8f157bc0a9e83a8bb1c52c3b20d8f7d4d3dab771d5d60"]
 					.unchecked_into(),
-				hex!["4717c6a0607ab3770bc20f9e291373e0874ef51ae404e32b477f987a27bd31a9"]
+				hex!["f9175ab5a7ebaa82304f814df70fdfed2e02fed9bbf81cfab59d1be9af881520"]
 					.unchecked_into(),
 			),
 			(
-				hex!["dcee42e2a17af3fa33c2c9b0993d665a84d8e6d28e9f0846e6dd7fa569d55b65"].into(),
-				hex!["dcee42e2a17af3fa33c2c9b0993d665a84d8e6d28e9f0846e6dd7fa569d55b65"].into(),
-				hex!["dcee42e2a17af3fa33c2c9b0993d665a84d8e6d28e9f0846e6dd7fa569d55b65"]
+				hex!["589114c02813a31cae0242ada338955c7caf8f88a1646e5de0dbc1793ab1f57c"].into(),
+				hex!["589114c02813a31cae0242ada338955c7caf8f88a1646e5de0dbc1793ab1f57c"].into(),
+				hex!["589114c02813a31cae0242ada338955c7caf8f88a1646e5de0dbc1793ab1f57c"]
 					.unchecked_into(),
-				hex!["2d3bdc43f5925d47228249b888f8b45a18b7eeb7a3c54362c87cdfaf32740dab"]
+				hex!["92cc3a02ff60da96ca2d1a2536e505f74f88992c2860be7fbfdf3edfd11e8759"]
 					.unchecked_into(),
 			),
 		],

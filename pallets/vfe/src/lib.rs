@@ -35,10 +35,10 @@ use bitcoin_hashes::sha256 as Sha256;
 use bitcoin_hashes::Hash as OtherHash;
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, One, 
+		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, One,
 		StaticLookup, Verify,
 	},
-	
+
 };
 
 use sp_std::{convert::From, prelude::*};
@@ -187,7 +187,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + pallet_uniques::Config<Self::UniquesInstance> {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-	
+
 		///  To control certain logic in admin
 		type CreateOrigin: EnsureOrigin<Self::Origin>;
 
@@ -645,10 +645,10 @@ pub mod pallet {
 		}
 
 
-		/// create_class 
-		/// - origin AccountId 
-		/// - class_id ClassId 
-		/// - meta_data Vec<u8> 
+		/// create_class
+		/// - origin AccountId
+		/// - class_id ClassId
+		/// - meta_data Vec<u8>
 		#[pallet::weight(< T as pallet_uniques::Config < T::UniquesInstance >>::WeightInfo::create()
 		+ < T as pallet_uniques::Config < T::UniquesInstance >>::WeightInfo::set_class_metadata())]
 		#[transactional]
@@ -692,11 +692,11 @@ pub mod pallet {
 
 
 
-		/// register_device 
-		/// - origin AccountId 
-		/// - puk   H256  
-		/// - producer_id ProducerId 
-		/// - class ClassId 
+		/// register_device
+		/// - origin AccountId
+		/// - puk   H256
+		/// - producer_id ProducerId
+		/// - class ClassId
 		#[pallet::weight(10_000)]
 		#[transactional]
 		pub fn register_device(
@@ -834,7 +834,7 @@ pub mod pallet {
 
 			device.instance_id = None;
 
-			Devices::<T>::insert(puk, device);
+			Devices::<T>::insert(puk, device.clone());
 
 			Self::deposit_event(Event::UnBindDevice(from, puk, device.class_id,former_instance));
 
@@ -1111,7 +1111,7 @@ impl<T: Config> Pallet<T> {
 
 				let r = Self::choose_winner_num(100u16);
 				let k = 120u16;
-				
+
 
 				let mut r_luck = (r % vfe.luck) + 1;
 				let r_skill = (vfe.skill * maximum_skipping) / ( ( (rope_tying_times as u16) + 1u16) * k);
