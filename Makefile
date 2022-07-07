@@ -24,7 +24,7 @@ build-runtime:
 
 .PHONY: build-spec
 build-spec:
-	./target/release/polket-node build-spec --disable-default-bootnode --chain polket-node-staging > ./specs/testnet.json
+	./target/release/polket-node build-spec --disable-default-bootnode --chain polket-staging > ./specs/testnet.json
 
 .PHONY: build-spec-raw
 build-spec-raw:

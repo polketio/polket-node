@@ -158,7 +158,7 @@ parameter_types! {
 	pub const InstanceDeposit: u64 = 1;
 	pub const KeyLimit: u32 = 50;
 	pub const ValueLimit: u32 = 50;
-	pub const StringLimit: u32 = 50;
+	pub const StringLimit: u32 = 500000;
 	pub const MetadataDepositBase: u64 = 1;
 	pub const AttributeDepositBase: u64 = 1;
 	pub const MetadataDepositPerByte: u64 = 1;
@@ -226,6 +226,7 @@ parameter_types! {
 	pub const NativeToken: u32 = 0;
 	pub const IncentiveToken: u32 = 0;
 	pub const UnbindFee:u32 = 1;
+
 
 }
 

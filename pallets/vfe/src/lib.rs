@@ -29,7 +29,8 @@ use scale_info::{
 	prelude::format,
 	TypeInfo,
 };
-use sp_core::{sr25519, H256};
+use sp_std::vec::Vec;
+use sp_std::boxed::Box;
 use bitcoin_hashes::ripemd160 as Ripemd;
 use bitcoin_hashes::sha256 as Sha256;
 use bitcoin_hashes::Hash as OtherHash;
@@ -40,8 +41,21 @@ use sp_runtime::{
 	},
 
 };
+use p256::{
+	NistP256,
+	elliptic_curve::{
+		PublicKey,sec1::ToEncodedPoint
+	},
+	ecdsa::{
+		SigningKey, Signature,VerifyingKey,
+		 signature::{
+			Signer,Verifier,Signature as Sig,
+		},
+	},
+};
 
-use sp_std::{convert::From, prelude::*};
+
+
 
 type BalanceOf<T> =
 <<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::Balance;
@@ -143,6 +157,8 @@ pub struct DeviceType<ClassId, ProducerId, StringLimit: Get<u32>> {
 }
 
 
+
+
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo)]
 pub struct Device<Class, ProducerId, Instance> {
 	class_id: Class,
@@ -150,7 +166,7 @@ pub struct Device<Class, ProducerId, Instance> {
 	instance_id: Option<Instance>,
 	producer_id: ProducerId,
 	status: DeviceStatus,
-	pk: H256,
+	pk: [u8;33],
 	nonce: u32,
 	new:u8,
 	timestamp:u32,
@@ -311,7 +327,7 @@ pub mod pallet {
 	pub(crate) type Devices<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		H256,
+		[u8;33],
 		Device<T::ClassId, T::ProducerId, T::InstanceId>,
 		OptionQuery,
 	>;
@@ -335,7 +351,7 @@ pub mod pallet {
 	pub(crate) type PublicKey<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		H256,
+		[u8;33],
 		u8,
 		OptionQuery,
 	>;
@@ -388,7 +404,7 @@ pub mod pallet {
 		DeviceTypeCreate(T::AccountId, T::ClassId, T::ProducerId, SportType, Vec<u8>),
 
 		/// Register device. \[producer, public_key,  class\]
-		RegisterDevice(T::AccountId, H256, T::ClassId),
+		RegisterDevice(T::AccountId,[u8;33], T::ClassId),
 
 		/// Create DeviceVFE. \[miner, class_id, instance_id, note  note\]
 		CreateDeviceVFE(T::AccountId, T::ClassId, T::InstanceId, Rarity),
@@ -403,13 +419,23 @@ pub mod pallet {
 		Burned(T::ClassId, T::InstanceId, T::AccountId),
 
 		/// Bind the device with vfe. \[ owner,public_key, class, instance  \]
-		BindDevice(T::AccountId, H256, T::ClassId,T::InstanceId),
+		BindDevice(T::AccountId,[u8;33], T::ClassId,T::InstanceId),
 
 		/// UnBind the device with vfe. \[ owner,public_key, class,former instance  \]
-		UnBindDevice(T::AccountId, H256, T::ClassId,T::InstanceId),
+		UnBindDevice(T::AccountId, [u8;33], T::ClassId,T::InstanceId),
 
 		/// Award from device with vfe. \[ owner, target_amount  \]
 		SportAward(T::AccountId, BalanceOf<T>),
+
+		/// PowerRecovery from device with vfe. \[ owner, use_amount,class, instance  \]
+		PowerRecovery(T::AccountId, BalanceOf<T>,T::ClassId,T::InstanceId),
+
+
+		Sha256Test(Vec<u8>),
+
+		VerifyTest(bool),
+
+		SignTest(Vec<u8>),
 	}
 
 	// Errors inform users that something went wrong.
@@ -473,8 +499,14 @@ pub mod pallet {
 		VFENotFullElectric,
 		/// VFEUpdating
 		VFEUpdating,
+		/// VFEUpdating
+		VFEFullElectric,
 		/// UserNotExist
 		UserNotExist,
+		/// PublicKeyEncodeError
+		PublicKeyEncodeError,
+		/// SigEncodeError
+		SigEncodeError,
 	}
 
 	#[pallet::call]
@@ -694,14 +726,14 @@ pub mod pallet {
 
 		/// register_device
 		/// - origin AccountId
-		/// - puk   H256
+		/// - puk   BoundedVec<u8, T::StringLimit>
 		/// - producer_id ProducerId
 		/// - class ClassId
 		#[pallet::weight(10_000)]
 		#[transactional]
 		pub fn register_device(
 			origin: OriginFor<T>,
-			puk: H256,
+			puk: [u8;33],
 			producer_id: T::ProducerId,
 			class: T::ClassId,
 		) -> DispatchResult {
@@ -716,10 +748,9 @@ pub mod pallet {
 			let class_owner = Self::class_owner(&class).ok_or(Error::<T>::ClassNotFound)?;
 			ensure!(admin == class_owner, Error::<T>::OperationIsNotAllowed);
 
-
 			PublicKey::<T>::insert(puk, 1u8);
 
-			Devices::<T>::insert(puk, Device {
+			Devices::<T>::insert(puk.clone(), Device {
 				class_id: class,
 				instance_id: None,
 				producer_id: producer.id.clone(),
@@ -730,7 +761,6 @@ pub mod pallet {
 				sport_type : device_type.sport_type,
 				timestamp:0u32,
 			});
-
 
 			Self::deposit_event(Event::RegisterDevice(admin.clone(), puk, class.clone()));
 
@@ -743,7 +773,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn bind_device(
 			origin: OriginFor<T>,
-			puk: H256,
+			puk: [u8;33],
 			req_sig: BoundedVec<u8, T::StringLimit>,
 			nonce:u32,
 			ins_opt : Option<T::InstanceId>,
@@ -764,7 +794,7 @@ pub mod pallet {
 				device.new = 0u8;
 
 				Devices::<T>::insert(puk, device);
-				Self::deposit_event(Event::BindDevice(from, puk, device.class_id,instance));
+				Self::deposit_event(Event::BindDevice(from, puk.clone(), device.class_id,instance));
 
 			}else{
 				let instance = ins_opt.ok_or(Error::<T>::InstanceIdCannotBeNull)?;
@@ -790,7 +820,7 @@ pub mod pallet {
 
 				device.instance_id = Some(instance);
 
-				Devices::<T>::insert(puk, device);
+				Devices::<T>::insert(puk.clone(), device);
 
 				Self::deposit_event(Event::BindDevice(from, puk, device.class_id,instance));
 			}
@@ -807,7 +837,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn unbind_device(
 			origin: OriginFor<T>,
-			puk: H256,
+			puk: [u8;33],
 			req_sig: BoundedVec<u8, T::StringLimit>,
 			nonce:u32,
 		) -> DispatchResult {
@@ -834,27 +864,29 @@ pub mod pallet {
 
 			device.instance_id = None;
 
-			Devices::<T>::insert(puk, device.clone());
+			Devices::<T>::insert(puk, &device);
 
 			Self::deposit_event(Event::UnBindDevice(from, puk, device.class_id,former_instance));
 
 			Ok(())
+
 		}
 
 
 		/// sport_upload update the data to the chain
 		///  - origin AccountId
-		/// - puk H256
+		/// - puk BoundedVec<u8, T::StringLimit>
 		/// - req_sig BoundedVec<u8, T::StringLimit>
 		/// - msg AccountId BoundedVec<u8, T::StringLimit>
 		#[pallet::weight(10_000)]
 		#[transactional]
 		pub fn sport_upload(
 			origin: OriginFor<T>,
-			puk: H256,
+			puk: [u8;33],
 			req_sig: BoundedVec<u8, T::StringLimit>,
 			msg: BoundedVec<u8, T::StringLimit>,
 		) -> DispatchResult {
+
 			let from = ensure_signed(origin.clone())?;
 
 			let mut device = Self::check_device_data(from.clone(),puk,req_sig,msg.clone())?;
@@ -865,6 +897,65 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// transfer vfe
+		/// - origin AccountId
+		/// - class ClassId
+		/// - instance InstanceId
+		/// - Source AccountId
+		#[pallet::weight(<T as pallet_uniques::Config<T::UniquesInstance>>::WeightInfo::transfer())]
+		pub fn power_recovery(
+			origin: OriginFor<T>,
+			#[pallet::compact] class: T::ClassId,
+			#[pallet::compact] instance: T::InstanceId,
+		) -> DispatchResult {
+
+			let from = ensure_signed(origin.clone())?;
+
+			let owner = Self::owner(&class,&instance).ok_or(Error::<T>::InstanceNotFound)?;
+
+			ensure!(from == owner , Error::<T>::OperationIsNotAllowed);
+
+			let mut vfe = DeviceVFEs::<T>::get(class,instance).ok_or(Error::<T>::VFENotExist)?;
+
+			ensure!(!vfe.is_update , Error::<T>::VFEUpdating);
+
+			ensure!(vfe.electric < 100u16 , Error::<T>::VFEFullElectric);
+
+
+			let p_one:u16;
+			let p_two:u16;
+			if vfe.durable <= 2{
+				p_one= 1u16;
+				p_two= 1u16;
+			}else{
+				let log_luck = format!("{:b} ", vfe.durable).len() - 2;
+				p_one = log_luck as u16;
+				p_two = (log_luck - 1) as u16 ;
+			}
+
+			let mut cost = 100u16;
+
+
+
+			cost = (100 - vfe.electric) * (cost / p_one * p_two);
+
+			let target_amount = BalanceOf::<T>::from(cost as u32);
+
+			// try to burn the charge
+			T::Currencies::burn_from(
+				T::IncentiveToken::get(),
+				&owner,
+				target_amount,
+			)?;
+
+			vfe.electric = 100u16;
+
+			// save common_prize
+			DeviceVFEs::<T>::insert(class.clone(), instance.clone(), vfe);
+
+			Self::deposit_event(Event::PowerRecovery(owner,target_amount,class, instance));
+			Ok(())
+		}
 
 		/// transfer vfe
 		/// - origin AccountId
@@ -894,6 +985,76 @@ pub mod pallet {
 				dest,
 			)?;
 			Self::deposit_event(Event::Transferred(class, instance, from, to));
+			Ok(())
+		}
+
+
+		/// sha256 for test
+		#[pallet::weight(10_000)]
+		#[transactional]
+		pub fn sha256_test(
+			origin: OriginFor<T>,
+			req_sig: Vec<u8>,
+		) -> DispatchResult {
+
+			let final_msg = Sha256::Hash::hash(&req_sig).encode();
+
+
+			Self::deposit_event(Event::Sha256Test(final_msg));
+
+			Ok(())
+		}
+
+
+		/// sign for test
+		#[pallet::weight(10_000)]
+		#[transactional]
+		pub fn sign_test(
+			origin: OriginFor<T>,
+			req_sig: Vec<u8>,
+			private_key :Vec<u8>,
+			msg:Vec<u8>,
+		) -> DispatchResult {
+
+			let signing_key = SigningKey::from_bytes(&private_key[..]).map_err(|_| Error::<T>::SigEncodeError)?; //
+
+			let signature = signing_key.sign(&msg[..]);
+
+
+
+			Self::deposit_event(Event::SignTest(signature.as_bytes().to_vec()));
+
+			Ok(())
+		}
+
+		/// verify for this
+		#[pallet::weight(10_000)]
+		#[transactional]
+		pub fn verify_test(
+			origin: OriginFor<T>,
+			req_sig: Vec<u8>,
+			public_key :Vec<u8>,
+			msg:Vec<u8>,
+		) -> DispatchResult {
+
+			let final_msg = Sha256::Hash::hash(&req_sig).encode();
+
+
+			let target = &req_sig[..];
+			let sig = Signature::from_bytes(target).map_err(|_| Error::<T>::SigEncodeError)?;
+
+			let pk = &public_key[..];
+			let verify_key = VerifyingKey::from_sec1_bytes(pk).map_err(|_| Error::<T>::PublicKeyEncodeError)?;
+
+
+			// check the validity of the signature
+			let final_msg: &[u8] = &msg.as_ref();
+			let flag = verify_key.verify(final_msg, &sig).is_ok();
+
+			ensure!(flag, Error::<T>::OperationIsNotAllowedForSign);
+
+			Self::deposit_event(Event::VerifyTest(flag));
+
 			Ok(())
 		}
 
@@ -985,27 +1146,31 @@ impl<T: Config> Pallet<T> {
 	// check the device's public key.
 	fn check_device_pub(
 						account:T::AccountId,
-						puk: H256,
+						puk: [u8;33],
 						req_sig: BoundedVec<u8, T::StringLimit>,
 						nonce: u32,
 	) -> Result<Device<T::ClassId, T::ProducerId, T::InstanceId>, sp_runtime::DispatchError> {
 		// get the producer owner
 		let mut device =
-			Devices::<T>::get(puk).ok_or(Error::<T>::DeviceNotExist)?;
+			Devices::<T>::get(puk.clone()).ok_or(Error::<T>::DeviceNotExist)?;
 
-		let pk = sr25519::Public::from_h256(device.pk.clone());
+		let pk = &puk[..];
+		let verify_key = VerifyingKey::from_sec1_bytes(pk).map_err(|_| Error::<T>::PublicKeyEncodeError)?;
 
 		let target = &req_sig[..];
 
-		let mut nonce_account = nonce.clone().encode();
+		let sig = Signature::from_bytes(target).map_err(|_| Error::<T>::SigEncodeError)?;
 
-		let account_rip160 = Ripemd::Hash::hash(account.encode().as_ref());
+		// let mut nonce_account = nonce.clone().encode();
 
-		nonce_account.append(&mut account_rip160.encode());
+		let mut nonce_account = [1u8; 24].to_vec();
+
+		// nonce_account.append(&mut account_rip160);
 
 		// check the validity of the signature
-		let flag = sr25519::Signature::from_slice(target)
-			.verify(Sha256::Hash::hash(&nonce_account.as_ref()).encode().as_ref(), &pk);
+		let final_msg = Sha256::Hash::hash(&nonce_account.as_ref()).encode();
+		let flag = verify_key.verify(&final_msg, &sig).is_ok();
+
 
 		ensure!(flag, Error::<T>::OperationIsNotAllowedForSign);
 
@@ -1014,7 +1179,7 @@ impl<T: Config> Pallet<T> {
 
 		device.nonce = nonce;
 
-		Devices::<T>::insert(puk, device.clone());
+		Devices::<T>::insert(puk, &device);
 
 		Ok(device)
 	}
@@ -1022,7 +1187,7 @@ impl<T: Config> Pallet<T> {
 	// check the device's public key.
 	fn check_device_data(
 		account:T::AccountId,
-		puk: H256,
+		puk: [u8;33],
 		req_sig: BoundedVec<u8, T::StringLimit>,
 		msg: BoundedVec<u8, T::StringLimit>,
 	) -> Result<Device<T::ClassId, T::ProducerId, T::InstanceId>, sp_runtime::DispatchError> {
@@ -1036,13 +1201,17 @@ impl<T: Config> Pallet<T> {
 
 		ensure!(account == device_owner, Error::<T>::InstanceNotBelongTheTarget);
 
-		let pk = sr25519::Public::from_h256(device.pk.clone());
-
 		let target = &req_sig[..];
+		let sig = Signature::from_bytes(target).map_err(|_| Error::<T>::SigEncodeError)?;
+
+		let pk = &puk[..];
+		let verify_key = VerifyingKey::from_sec1_bytes(pk).map_err(|_| Error::<T>::PublicKeyEncodeError)?;
+
 
 		// check the validity of the signature
-		let flag = sr25519::Signature::from_slice(target)
-			.verify(Sha256::Hash::hash(&msg.as_ref()).encode().as_ref(), &pk);
+		let final_msg: &[u8] = &msg.as_ref();
+		let flag = verify_key.verify(final_msg, &sig).is_ok();
+
 
 		ensure!(flag, Error::<T>::OperationIsNotAllowedForSign);
 
@@ -1104,7 +1273,7 @@ impl<T: Config> Pallet<T> {
 
 				user.energy = user.energy - electric_use;
 				vfe.electric = vfe.electric.clone() - electric_use;
-				device.timestamp = timestamp;
+
 
 
 
@@ -1150,8 +1319,10 @@ impl<T: Config> Pallet<T> {
 
 				let final_award = BalanceOf::<T>::from(final_use as u32);
 
+				// let  d_pk = device.pk;
 
 				// update the electric with user and vfe and device.
+				device.timestamp = timestamp;
 				Devices::<T>::insert(device.pk ,device);
 				Users::<T>::insert(account.clone(),user);
 				DeviceVFEs::<T>::insert(class_id.clone(), instance_id.clone(), vfe);
