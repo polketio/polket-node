@@ -105,7 +105,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("polket"),
 	impl_name: create_runtime_str!("polket"),
 	authoring_version: 1,
-	spec_version: 2,
+	spec_version: 3,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -696,7 +696,7 @@ construct_runtime!(
 		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
 		Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
-		SportTool: pallet_vfe::{Pallet, Call, Storage, Event<T>},
+		VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
