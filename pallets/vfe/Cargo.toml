@@ -38,7 +38,7 @@ rust_decimal_macros = "1.25"
 pallet-assets = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
 pallet-balances = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
 pallet-uniques = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-getrandom = { version = "0.2", features = ["js"] }
+#getrandom = { version = "0.2", features = ["js"] }
 # local libraries
 pallet-support = { default-features = false, path='../support' }
 pallet-unique-id = { default-features = false, path='../unique-id' }

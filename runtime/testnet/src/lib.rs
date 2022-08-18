@@ -636,31 +636,31 @@ parameter_types! {
 }
 
 
-impl pallet_vfe::Config for Runtime {
-	type Event = Event;
-	type CreateOrigin = frame_system::EnsureRoot<AccountId>;
-	type RoleOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
-	type ProducerId = u32;
-	type Currencies = Currencies;
-	type PalletId = SportPalletId;
-	type UniqueId = UniqueId;
-	type UniquesInstance = CouponsInstance;
-	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
-	type Currency = Balances;
-	type MaxGenerateRandom = MaxGenerateRandom;
-	type Electric = Electric;
-	type CommonMin = CommonMin;
-	type CommonMax = CommonMin;
-	type EliteMin = EliteMin;
-	type EliteMax = EliteMax;
-	type RareMin = RareMin;
-	type RareMax = RareMax;
-	type EpicMin = EpicMin;
-	type EpicMax = EpicMax;
-	type IncentiveToken = IncentiveToken;
-	type NativeToken = NativeToken;
-	type UnbindFee = UnbindFee;
-}
+// impl pallet_vfe::Config for Runtime {
+// 	type Event = Event;
+// 	type CreateOrigin = frame_system::EnsureRoot<AccountId>;
+// 	type RoleOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
+// 	type ProducerId = u32;
+// 	type Currencies = Currencies;
+// 	type PalletId = SportPalletId;
+// 	type UniqueId = UniqueId;
+// 	type UniquesInstance = CouponsInstance;
+// 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
+// 	type Currency = Balances;
+// 	type MaxGenerateRandom = MaxGenerateRandom;
+// 	type Electric = Electric;
+// 	type CommonMin = CommonMin;
+// 	type CommonMax = CommonMin;
+// 	type EliteMin = EliteMin;
+// 	type EliteMax = EliteMax;
+// 	type RareMin = RareMin;
+// 	type RareMax = RareMax;
+// 	type EpicMin = EpicMin;
+// 	type EpicMax = EpicMax;
+// 	type IncentiveToken = IncentiveToken;
+// 	type NativeToken = NativeToken;
+// 	type UnbindFee = UnbindFee;
+// }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -697,7 +697,7 @@ construct_runtime!(
 		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
 		Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
-		VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>},
+		// VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>},
 	}
 );
 

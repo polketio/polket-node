@@ -69,7 +69,7 @@ pallet-support = {default-features = false, path = '../../pallets/support', vers
 pallet-unique-id = {default-features = false, path = '../../pallets/unique-id', version = '0.1.0'}
 pallet-currencies = {default-features = false, path = '../../pallets/currencies', version = '0.1.0'}
 pallet-buyback = {default-features = false, path = '../../pallets/buyback', version = '0.1.0'}
-pallet-vfe = {default-features = false, path = '../../pallets/vfe', version = '0.1.0'}
+#pallet-vfe = {default-features = false, path = '../../pallets/vfe', version = '0.1.0'}
 
 runtime-common = {default-features = false, path = '../common', version = '0.1.0'}
 
@@ -118,7 +118,7 @@ std = [
     'sp-version/std',
     'runtime-common/std',
     'pallet-support/std',
-    'pallet-vfe/std',
+    #'pallet-vfe/std',
 	'pallet-identity-extra/std',
     'pallet-unique-id/std',
     'pallet-session/std',
