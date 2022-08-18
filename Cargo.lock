@@ -3956,11 +3956,14 @@ dependencies = [
 name = "pallet-buyback"
 version = "0.1.0"
 dependencies = [
+ "bitcoin_hashes",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
+ "hex-literal",
  "num-integer",
+ "p256",
  "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
