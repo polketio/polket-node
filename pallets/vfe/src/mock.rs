@@ -202,6 +202,7 @@ impl pallet_unique_id::Config for Test {
 	type ClassId = u32;
 	type InstanceId = u32;
 	type AssetId = u32;
+	type NormalId = u32;
 }
 
 parameter_types! {

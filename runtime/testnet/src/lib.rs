@@ -484,6 +484,7 @@ impl pallet_unique_id::Config for Runtime {
 	type ClassId = ClassId;
 	type InstanceId = InstanceId;
 	type AssetId = AssetId;
+	type NormalId = NormalId;
 }
 
 impl pallet_utility::Config for Runtime {
