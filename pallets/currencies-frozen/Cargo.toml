@@ -1,5 +1,5 @@
 [package]
-name = 'pallet-currencies'
+name = 'pallet-currencies-frozen'
 version = '0.1.0'
 description = 'FRAME pallet template for defining custom runtime logic.'
 authors = ['Polket <https://www.polket.io>']
@@ -24,12 +24,10 @@ sp-core = { default-features = false, git = 'https://github.com/paritytech/subst
 sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
 sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
 sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
+# local libraries
 pallet-support = { default-features = false, path='../support' }
 pallet-assets = { git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
 
-
-[dev-dependencies]
-pallet-balances = { git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
 
 [features]
 default = ['std']
@@ -46,10 +44,10 @@ std = [
     'scale-info/std',
     'frame-support/std',
     'frame-system/std',
-    'pallet-support/std',
     'frame-benchmarking/std',
     'sp-runtime/std',
     'sp-core/std',
+    'pallet-support/std',
     'sp-io/std',
     'sp-std/std',
 ]

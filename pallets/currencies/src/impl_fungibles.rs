@@ -144,6 +144,50 @@ impl<T: Config> fungibles::Transfer<T::AccountId> for Pallet<T> {
 	}
 }
 
+
+
+impl<T: Config>  AssetFronze<AssetIdOf<T>, T::AccountId, BalanceOf<T>> for Pallet<T>  {
+	fn frozen_balance(
+		from: &T::AccountId,
+		asset_id: AssetIdOf<T>,
+		value:  BalanceOf<T>,
+	) ->  Result<BalanceOf<T>, sp_runtime::DispatchError>{
+
+		let result = T::MultiCurrency::can_withdraw(asset_id,from,value);
+
+		ensure!(result == WithdrawConsequence::Success,Error::<T>::BalanceNotEnough);
+
+		FrozenBalances::<T>::try_mutate(from, asset_id, |maybe_balance| -> Result<BalanceOf<T>, sp_runtime::DispatchError>  {
+			if let Some(f_balance) = maybe_balance {
+				*maybe_balance = Some(f_balance.saturating_add(value));
+			}else{
+				*maybe_balance = Some(value);
+			}
+			Ok(value)
+		})
+
+	}
+
+
+	fn unfrozen_balance(
+		from: &T::AccountId,
+		asset_id: AssetIdOf<T>,
+		value:  BalanceOf<T>,
+	) ->  Result<BalanceOf<T>, sp_runtime::DispatchError>{
+		FrozenBalances::<T>::try_mutate(from, asset_id, |maybe_balance| -> Result<BalanceOf<T>, sp_runtime::DispatchError>  {
+			let frozen  = maybe_balance.ok_or(Error::<T>::FrozenBalanceNotExist)?;
+			
+			ensure!(frozen > value,Error::<T>::BalanceNotEnough);
+
+			*maybe_balance = Some(frozen.saturating_sub(value));
+
+			Ok(value)
+		})
+	}
+
+}
+
+
 // impl<T: Config<I>, I: 'static> fungibles::Unbalanced<T::AccountId> for Pallet<T, I> {
 // 	fn set_balance(_: Self::AssetId, _: &T::AccountId, _: Self::Balance) -> DispatchResult {
 // 		unreachable!("set_balance is not used if other functions are impl'd");

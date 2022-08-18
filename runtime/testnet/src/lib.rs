@@ -105,7 +105,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("polket"),
 	impl_name: create_runtime_str!("polket"),
 	authoring_version: 1,
-	spec_version: 3,
+	spec_version: 6,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -688,7 +688,7 @@ construct_runtime!(
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template::{Pallet, Call, Storage, Event<T>},
-		AssetsModule: pallet_assets::{Pallet, Storage, Event<T>, Config<T>},
+		AssetsModule: pallet_assets::{Pallet, Storage,Call, Event<T>, Config<T>},
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>},
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
 		CouponsUniques: pallet_uniques::<Instance2>::{Pallet, Storage, Event<T>},

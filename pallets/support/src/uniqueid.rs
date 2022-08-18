@@ -6,6 +6,7 @@ pub trait UniqueIdGenerator {
 	type ClassId;
 	type InstanceId;
 	type AssetId;
+	type NormalId;
 
 	/// generate new class id: Return the current ID, and increment the current ID
 	fn generate_class_id() -> Result<Self::ClassId, sp_runtime::DispatchError>;
@@ -16,4 +17,7 @@ pub trait UniqueIdGenerator {
 	/// generate new asset id with class id: Return the current ID, and increment the current ID
 	fn generate_asset_id(
 	) -> Result<Self::AssetId, sp_runtime::DispatchError>;
+	/// generate normal id :Return the current ID, and increment the current ID
+	fn generate_normal_id(
+	) -> Result<Self::NormalId, sp_runtime::DispatchError>;
 }

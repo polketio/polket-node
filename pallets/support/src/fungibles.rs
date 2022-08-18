@@ -11,3 +11,20 @@ pub trait TransferNotifier<AccountId,AssetId,Balance> {
 		value: Balance,
 	) -> bool;
 }
+
+
+pub trait AssetFronze<AssetId,AccountId,Balance> {
+	fn frozen_balance(
+		from: &AccountId,
+		asset_id: AssetId,
+		value: Balance,
+	) ->  Result<Balance, sp_runtime::DispatchError>;
+
+	fn unfrozen_balance(
+		from: &AccountId,
+		asset_id: AssetId,
+		value: Balance,
+	) ->  Result<Balance, sp_runtime::DispatchError>;
+
+	
+}
