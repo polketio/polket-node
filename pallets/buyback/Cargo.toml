@@ -18,18 +18,18 @@ hex = { version = "0.4", default-features = false, features = ["alloc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 codec = { default-features = false, features = ['derive'], package = 'parity-scale-codec', version = '2.0.0' }
 scale-info = { default-features = false, features = ['derive'], version = '1.0'}
-frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/substrate.git', optional = true, tag = 'monthly-2021-11', version = '4.0.0-dev' }
-frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-core = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
+frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/substrate.git', optional = true, tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-core = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
 p256 = { default-features = false, version = "0.11.1", features = ["ecdsa"]}
 
 [dev-dependencies]
-pallet-assets = { git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-pallet-balances = { git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
+pallet-assets = { git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+pallet-balances = { git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
 hex-literal = '0.3.1'
 bitcoin_hashes = { default-features = false,  version = '0.10.0' }
 

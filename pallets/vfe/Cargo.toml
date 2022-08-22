@@ -15,8 +15,8 @@ targets = ['x86_64-unknown-linux-gnu']
 [dev-dependencies]
 hex = "0.4.2"
 blake2-rfc = "0.2.18"
-frame-support = { git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-frame-support-test = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11' }
+frame-support = { git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+frame-support-test = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27' }
 hex-literal = '0.3.1'
 
 
@@ -25,19 +25,19 @@ codec = { default-features = false, features = ['derive'], package = 'parity-sca
 bitcoin_hashes = { default-features = false,  version = '0.10.0' }
 p256 = { default-features = false, version = "0.11.1", features = ["ecdsa"]}
 scale-info = { default-features = false, features = ['derive'], version = '1.0'}
-frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/substrate.git', optional = true, tag = 'monthly-2021-11', version = '4.0.0-dev' }
-frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-core = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
+frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/substrate.git', optional = true, tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-core = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
 num-integer = { default-features = false, version = "0.1.45"}
 rust_decimal = "1.25"
 rust_decimal_macros = "1.25"
-pallet-assets = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-pallet-balances = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-pallet-uniques = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
+pallet-assets = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+pallet-balances = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+pallet-uniques = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
 #getrandom = { version = "0.2", features = ["js"] }
 # local libraries
 pallet-support = { default-features = false, path='../support' }
