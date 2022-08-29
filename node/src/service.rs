@@ -83,6 +83,7 @@ pub fn new_partial(
 		config.wasm_method,
 		config.default_heap_pages,
 		config.max_runtime_instances,
+		config.runtime_cache_size,
 	);
 
 	let (client, backend, keystore_container, task_manager) =
@@ -94,7 +95,7 @@ pub fn new_partial(
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
-		task_manager.spawn_handle().spawn("telemetry", worker.run());
+		task_manager.spawn_handle().spawn("telemetry", None, worker.run());
 		telemetry
 	});
 
@@ -116,7 +117,7 @@ pub fn new_partial(
 	)?;
 
 	let justification_import = grandpa_block_import.clone();
-	let babe_config = sc_consensus_babe::Config::get_or_compute(&*client)?;
+	let babe_config = sc_consensus_babe::Config::get(&*client)?;
 	let (block_import, babe_link) =
 		sc_consensus_babe::block_import(babe_config.clone(), grandpa_block_import, client.clone())?;
 	let slot_duration = babe_link.config().slot_duration();
@@ -247,7 +248,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
-			on_demand: None,
 			block_announce_validator_builder: None,
 			warp_sync: Some(warp_sync),
 		})?;
@@ -275,8 +275,6 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
 		rpc_extensions_builder: Box::new(rpc_extensions_builder),
-		on_demand: None,
-		remote_blockchain: None,
 		backend,
 		system_rpc_tx,
 		config,
@@ -324,7 +322,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		};
 
 		let babe = sc_consensus_babe::start_babe(babe_config)?;
-		task_manager.spawn_essential_handle().spawn_blocking("babe", babe);
+		task_manager.spawn_essential_handle().spawn_blocking("babe-proposer", Some("block-authoring"), babe);
 	}
 
 	// if the node isn't actively participating in consensus then it doesn't
@@ -364,6 +362,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		// if it fails we take down the service with it.
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"grandpa-voter",
+			None,
 			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
 	}

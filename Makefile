@@ -20,7 +20,7 @@ build:
 
 .PHONY: build-runtime
 build-runtime:
-	 cargo build --release -p polket-node-runtime
+	 cargo build --release -p polket-runtime
 
 .PHONY: build-spec
 build-spec:

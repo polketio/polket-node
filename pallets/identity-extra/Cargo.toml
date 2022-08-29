@@ -15,18 +15,18 @@ targets = ['x86_64-unknown-linux-gnu']
 [dependencies]
 codec = { default-features = false, features = ['derive'], package = 'parity-scale-codec', version = '2.0.0' }
 scale-info = { default-features = false, features = ['derive'], version = '1.0'}
-frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/substrate.git', optional = true, tag = 'monthly-2021-11', version = '4.0.0-dev' }
-frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-core = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
-sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
+frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/substrate.git', optional = true, tag = 'monthly-2022-01', version = '4.0.0-dev' }
+frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
+frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
+sp-core = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.1.0-dev' }
+sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
+sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
+sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
 
 
 
 # substrate pallets
-pallet-identity = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev' }
+pallet-identity = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
 
 # local
 primitives = { package = "polket-primitives", path = "../../primitives", default-features = false }
@@ -34,7 +34,7 @@ primitives = { package = "polket-primitives", path = "../../primitives", default
 pallet-support = { default-features = false, path='../support' }
 
 [dev-dependencies]
-pallet-balances = { git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2021-11', version = '4.0.0-dev'}
+pallet-balances = { git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev'}
 
 
 [features]
