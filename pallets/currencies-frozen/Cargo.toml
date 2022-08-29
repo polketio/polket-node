@@ -26,7 +26,7 @@ sp-runtime = { default-features = false, git = 'https://github.com/paritytech/su
 sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
 # local libraries
 pallet-support = { default-features = false, path='../support' }
-pallet-assets = { git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+pallet-assets = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
 
 
 [features]
@@ -50,5 +50,6 @@ std = [
     'pallet-support/std',
     'sp-io/std',
     'sp-std/std',
+    'pallet-assets/std',
 ]
 try-runtime = ['frame-support/try-runtime']

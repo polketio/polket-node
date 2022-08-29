@@ -24,9 +24,11 @@ sp-core = { default-features = false, git = 'https://github.com/paritytech/subst
 sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
 sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
 sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
+pallet-assets = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
+
+pallet-support = { default-features = false, path='../support' }
 
 [dev-dependencies]
-pallet-assets = { git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
 pallet-balances = { git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
 
 [features]
@@ -50,5 +52,6 @@ std = [
     'sp-core/std',
     'sp-io/std',
     'sp-std/std',
+    'pallet-assets/std',
 ]
 try-runtime = ['frame-support/try-runtime']
