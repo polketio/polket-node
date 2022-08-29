@@ -12,12 +12,14 @@ use frame_support::{
 	},
 	transactional, PalletId, RuntimeDebug,
 };
+use bitcoin_hashes::ripemd160 as Ripemd;
 
 use frame_system::{
 	pallet_prelude::*,
 	RawOrigin,
 };
 use num_integer::Roots;
+
 
 /// Edit this file to define custom logic or remove it if it is not needed.
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
@@ -29,9 +31,7 @@ use scale_info::{
 	prelude::format,
 	TypeInfo,
 };
-use sp_std::vec::Vec;
-use sp_std::boxed::Box;
-use bitcoin_hashes::ripemd160 as Ripemd;
+use sp_std::{vec::Vec,boxed::Box,convert::{TryFrom, TryInto}};
 use bitcoin_hashes::sha256 as Sha256;
 use bitcoin_hashes::Hash as OtherHash;
 use sp_runtime::{
@@ -348,7 +348,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn public_key)]
-	pub(crate) type PublicKey<T: Config> = StorageMap<
+	pub(crate) type PublicKeys<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		[u8;33],
@@ -433,9 +433,11 @@ pub mod pallet {
 
 		Sha256Test(Vec<u8>),
 
-		VerifyTest(bool),
+		/// VerifyTest. \[ pubkey, msg, sha256msg, signature, isValid  \]
+		VerifyTest(Vec<u8>,Vec<u8>,Vec<u8>,Vec<u8>,bool),
 
-		SignTest(Vec<u8>),
+		/// SignTest. \[ privatekey, pubkey, msg, sha256msg, signature \]
+		SignTest(Vec<u8>,Vec<u8>,Vec<u8>,Vec<u8>,Vec<u8>),
 	}
 
 	// Errors inform users that something went wrong.
@@ -739,7 +741,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let admin = T::RoleOrigin::ensure_origin(origin.clone())?;
 
-			ensure!(!PublicKey::<T>::contains_key(puk), Error::<T>::PublicKeyExist);
+			ensure!(!PublicKeys::<T>::contains_key(puk), Error::<T>::PublicKeyExist);
 
 			let producer = Self::check_producer(admin.clone(), producer_id)?;
 
@@ -748,7 +750,7 @@ pub mod pallet {
 			let class_owner = Self::class_owner(&class).ok_or(Error::<T>::ClassNotFound)?;
 			ensure!(admin == class_owner, Error::<T>::OperationIsNotAllowed);
 
-			PublicKey::<T>::insert(puk, 1u8);
+			PublicKeys::<T>::insert(puk, 1u8);
 
 			Devices::<T>::insert(puk.clone(), Device {
 				class_id: class,
@@ -936,7 +938,6 @@ pub mod pallet {
 			let mut cost = 100u16;
 
 
-
 			cost = (100 - vfe.electric) * (cost / p_one * p_two);
 
 			let target_amount = BalanceOf::<T>::from(cost as u32);
@@ -994,10 +995,10 @@ pub mod pallet {
 		#[transactional]
 		pub fn sha256_test(
 			origin: OriginFor<T>,
-			req_sig: Vec<u8>,
+			text: Vec<u8>,
 		) -> DispatchResult {
 
-			let final_msg = Sha256::Hash::hash(&req_sig).encode();
+			let final_msg = Sha256::Hash::hash(&text).to_vec();
 
 
 			Self::deposit_event(Event::Sha256Test(final_msg));
@@ -1011,18 +1012,24 @@ pub mod pallet {
 		#[transactional]
 		pub fn sign_test(
 			origin: OriginFor<T>,
-			req_sig: Vec<u8>,
 			private_key :Vec<u8>,
 			msg:Vec<u8>,
 		) -> DispatchResult {
+
+			let final_msg = Sha256::Hash::hash(&msg).to_vec();
+
 
 			let signing_key = SigningKey::from_bytes(&private_key[..]).map_err(|_| Error::<T>::SigEncodeError)?; //
 
 			let signature = signing_key.sign(&msg[..]);
 
+			let verifying_key = signing_key.verifying_key(); // Serialize with `::to_encoded_point()`
+			let public_key: PublicKey<NistP256> = verifying_key.into();
+			let encoded_point = public_key.to_encoded_point(true);
 
+			// privatekey, pubkey, msg, sha256msg, signature
 
-			Self::deposit_event(Event::SignTest(signature.as_bytes().to_vec()));
+			Self::deposit_event(Event::SignTest(private_key,encoded_point.as_bytes().to_vec(),msg,final_msg,signature.as_bytes().to_vec()));
 
 			Ok(())
 		}
@@ -1037,7 +1044,7 @@ pub mod pallet {
 			msg:Vec<u8>,
 		) -> DispatchResult {
 
-			let final_msg = Sha256::Hash::hash(&req_sig).encode();
+			let final_msg = Sha256::Hash::hash(&msg).to_vec();
 
 
 			let target = &req_sig[..];
@@ -1048,12 +1055,13 @@ pub mod pallet {
 
 
 			// check the validity of the signature
-			let final_msg: &[u8] = &msg.as_ref();
-			let flag = verify_key.verify(final_msg, &sig).is_ok();
+			// let final_msg: &[u8] = &msg.as_ref();
+			let flag = verify_key.verify(&msg[..], &sig).is_ok();
 
 			ensure!(flag, Error::<T>::OperationIsNotAllowedForSign);
 
-			Self::deposit_event(Event::VerifyTest(flag));
+			//  pubkey, msg, sha256msg, signature, isValid
+			Self::deposit_event(Event::VerifyTest(public_key,msg,final_msg,req_sig,flag));
 
 			Ok(())
 		}
@@ -1161,16 +1169,14 @@ impl<T: Config> Pallet<T> {
 
 		let sig = Signature::from_bytes(target).map_err(|_| Error::<T>::SigEncodeError)?;
 
-		// let mut nonce_account = nonce.clone().encode();
+		let mut nonce_account = nonce.clone().to_be_bytes().to_vec();
 
-		let mut nonce_account = [1u8; 24].to_vec();
+		let account_rip160 = Ripemd::Hash::hash(account.encode().as_ref());
 
-		// nonce_account.append(&mut account_rip160);
+		nonce_account.append(&mut account_rip160.to_vec());
 
 		// check the validity of the signature
-		let final_msg = Sha256::Hash::hash(&nonce_account.as_ref()).encode();
-		let flag = verify_key.verify(&final_msg, &sig).is_ok();
-
+		let flag = verify_key.verify(&nonce_account, &sig).is_ok();
 
 		ensure!(flag, Error::<T>::OperationIsNotAllowedForSign);
 
@@ -1235,21 +1241,27 @@ impl<T: Config> Pallet<T> {
 
 		match sport_type{
 			SportType::SkippingRope =>{
-				ensure!(msg.len() == 14, Error::<T>::DeviceMsgNotCanNotBeDecode);
-
-				let mut timestamp_vec = &msg[0..4];
+				ensure!(msg.len() == 17, Error::<T>::DeviceMsgNotCanNotBeDecode);
+				// let msg_vec = msg.to_vec();
+				let  timestamp_vec:[u8;4] = msg[0..4].try_into().map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
 				// let mode = msg[4];
-				let mut skipping_duration_vec = &msg[5..7];
-				// let mut skipping_times_vec = &msg[7..9];
-				let mut average_frequency_vec =  &msg[9..11];
-				let mut maximum_skipping_vec =  &msg[11..13];
-				let rope_tying_times = msg[13];
+				let  skipping_times_vec:[u8;2] = msg[4..6].try_into().map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
+				let  skipping_duration_vec:[u8;2] = msg[6..8].try_into().map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
 
-				let timestamp = u32::decode(&mut timestamp_vec).map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
-				let skipping_duration = u16::decode(&mut skipping_duration_vec).map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
-				// let skipping_times = u16::decode(&mut skipping_times_vec).map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
-				let average_frequency = u16::decode(&mut average_frequency_vec).map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
-				let maximum_skipping = u16::decode(&mut maximum_skipping_vec).map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
+				let  average_frequency_vec:[u8;2] =  msg[8..10].try_into().map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
+				let  maximum_frequency_vec:[u8;2] =  msg[10..12].try_into().map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
+				let  maximum_skipping_vec:[u8;2] =  msg[12..14].try_into().map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
+				let rope_tying_times = msg[14];
+				let effective_skipping_times_vec:[u8;2] =  msg[15..17].try_into().map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
+
+				let timestamp = u32::from_le_bytes( timestamp_vec);
+				let skipping_times = u16::from_le_bytes( skipping_times_vec);
+				let skipping_duration = u16::from_le_bytes( skipping_duration_vec);
+
+				let average_frequency = u16::from_le_bytes( average_frequency_vec);
+				let maximum_frequency = u16::from_le_bytes( maximum_frequency_vec);
+				let maximum_skipping = u16::from_le_bytes( maximum_skipping_vec);
+				let effective_skipping_times = u16::from_le_bytes( effective_skipping_times_vec);
 
 
 				ensure!(timestamp > device.timestamp, Error::<T>::DeviceTimeStampMustGreaterThanBefore);
@@ -1259,7 +1271,7 @@ impl<T: Config> Pallet<T> {
 
 				let mut user = Users::<T>::get(account.clone()).ok_or(Error::<T>::UserNotExist)?;
 
-				let mut electric_use = skipping_duration / 60u16;
+				let mut electric_use = skipping_duration / 10u16;
 
 				// check the user energy
 				if electric_use > user.energy {
@@ -1307,7 +1319,7 @@ impl<T: Config> Pallet<T> {
 					p_one= 1u16;
 					p_two= 1u16;
 				}else{
-					let log_luck = format!("{:b} ", vfe.luck).len() - 2;
+					let log_luck = format!("{:b} ", vfe.luck).len() ;
 					p_one = log_luck as u16;
 					p_two = (log_luck - 1) as u16 ;
 				}
@@ -1367,8 +1379,8 @@ impl<T: Config> Pallet<T> {
 		if !Users::<T>::contains_key(account_id.clone()){
 			let user = User{
 				owner : account_id.clone(),
-				energy_total : 10u16,
-				energy:0u16,
+				energy_total : 100u16,
+				energy:100u16,
 				create_block:block_number,
 				last_block:block_number,
 			};

@@ -59,6 +59,7 @@ sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate", tag
 sc-sync-state-rpc = { git = "https://github.com/paritytech/substrate", tag = 'monthly-2022-01', version = '0.10.0-dev' }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", tag = 'monthly-2022-01', version = '4.0.0-dev' }
 
+
 # local libraries
 polket-runtime = {path = '../runtime/testnet', version = '0.1.0'}
 

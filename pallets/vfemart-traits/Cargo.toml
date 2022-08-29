@@ -1,0 +1,57 @@
+[package]
+name = "vfemart-traits"
+version = '0.1.0'
+description = 'This module providesmerchants to create coupons for use in their sales activities.'
+authors = ['Polket <https://www.polket.io>']
+homepage = 'https://www.polket.io'
+edition = '2018'
+license = "GPL-3.0-or-later"
+publish = false
+repository = 'https://github.com/polket/polket-node/'
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+enumflags2 = { version = "0.6.3" }
+contract-types = { path = "contract-types", default-features = false }
+log = { version = "0.4.14", default-features = false }
+smallvec = "1.6.1"
+serde = { version = "1.0.111", optional = true }
+codec = { package = "parity-scale-codec", version = "2.2.0", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { default-features = false, features = ['derive'], version = '1.0'}
+frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/substrate.git', optional = true, tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-core = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+pallet-assets = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+pallet-balances = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+pallet-uniques = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'polkadot-v0.9.27', version = '4.0.0-dev' }
+pallet-unique-id = { default-features = false, path='../unique-id' }
+pallet-support = { default-features = false, path='../support' }
+[features]
+default = ['std']
+std = [
+	"serde",
+	"log/std",
+	"codec/std",
+	"sp-core/std",
+	'sp-std/std',
+    'frame-support/std',
+	"enumflags2/serde",
+	"sp-runtime/std",
+	"contract-types/std",
+	"scale-info/std",
+	"frame-support/std",
+	"frame-system/std",
+	'frame-system/std',
+	'frame-benchmarking/std',
+	'sp-io/std',
+	'pallet-assets/std',
+	'pallet-balances/std',
+	'pallet-uniques/std',
+]
+

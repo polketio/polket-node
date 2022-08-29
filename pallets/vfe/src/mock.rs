@@ -202,6 +202,7 @@ impl pallet_unique_id::Config for Test {
 	type ClassId = u32;
 	type InstanceId = u32;
 	type AssetId = u32;
+	type NormalId = u32;
 }
 
 parameter_types! {
@@ -245,7 +246,7 @@ impl pallet_vfe::Config for Test {
 	type MaxGenerateRandom = MaxGenerateRandom;
 	type Electric = Electric;
 	type CommonMin = CommonMin;
-	type CommonMax = CommonMin;
+	type CommonMax = CommonMax;
 	type EliteMin = EliteMin;
 	type EliteMax = EliteMax;
 	type RareMin = RareMin;

@@ -7,7 +7,7 @@
 use frame_support::{
 	dispatch::DispatchResult,
 	pallet_prelude::*,
-	traits::{fungible, fungibles},
+	traits::{fungible, fungibles::{Inspect,Mutate,Transfer},tokens::WithdrawConsequence},
 };
 use frame_system::pallet_prelude::*;
 
@@ -17,8 +17,11 @@ use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
 	FixedPointNumber, FixedU128,
 };
+use pallet_support::fungibles::AssetFronze;
 
 mod impl_fungibles;
+
+mod types;
 
 #[cfg(test)]
 mod mock;
@@ -26,10 +29,10 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-type BalanceOf<T> = <<T as Config>::MultiCurrency as fungibles::Inspect<
+type BalanceOf<T> = <<T as Config>::MultiCurrency as Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
-type AssetIdOf<T> = <<T as Config>::MultiCurrency as fungibles::Inspect<
+type AssetIdOf<T> = <<T as Config>::MultiCurrency as Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::AssetId;
 
@@ -48,9 +51,9 @@ pub mod pallet {
 		type NativeToken: Get<AssetIdOf<Self>>;
 
 		/// pallet_assets
-		type MultiCurrency: fungibles::Inspect<Self::AccountId>
-			+ fungibles::Mutate<Self::AccountId>
-			+ fungibles::Transfer<Self::AccountId>;
+		type MultiCurrency: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId>
+			+ Transfer<Self::AccountId>;
 
 		/// native currency
 		type NativeCurrency: fungible::Inspect<Self::AccountId, Balance = BalanceOf<Self>>
@@ -61,6 +64,18 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
+
+	#[pallet::storage]
+	#[pallet::getter(fn frozen_balance_get)]
+	pub(super) type FrozenBalances<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		Twox64Concat,
+		AssetIdOf<T>,
+		BalanceOf<T>,
+		OptionQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -85,6 +100,12 @@ pub mod pallet {
 		InsufficientBalance,
 		/// The asset does not exist.
 		AssetNotExisted,
+		/// The balance does not exist.
+		BalanceNotEnough,
+		/// The frozen balance does not exist.
+		FrozenBalanceNotExist,
+		/// The frozen balance does not enough.
+		FrozenBalanceNotEnough,
 	}
 
 	#[pallet::call]
@@ -104,7 +125,7 @@ pub mod pallet {
 			let from = ensure_signed(origin)?;
 			let to = T::Lookup::lookup(dest)?;
 
-			<Self as fungibles::Transfer<_>>::transfer(asset_id, &from, &to, amount, keep_alive)?;
+			<Self as Transfer<_>>::transfer(asset_id, &from, &to, amount, keep_alive)?;
 			Ok(())
 		}
 
@@ -126,7 +147,7 @@ pub mod pallet {
 			let from = T::Lookup::lookup(source)?;
 			let to = T::Lookup::lookup(dest)?;
 
-			<Self as fungibles::Transfer<T::AccountId>>::transfer(
+			<Self as Transfer<T::AccountId>>::transfer(
 				asset_id, &from, &to, amount, false,
 			)?;
 			Ok(())
@@ -145,7 +166,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let from = ensure_signed(origin)?;
 			let to = T::Lookup::lookup(dest)?;
-			<Self as fungibles::Transfer<T::AccountId>>::transfer(
+			<Self as Transfer<T::AccountId>>::transfer(
 				T::NativeToken::get(),
 				&from,
 				&to,

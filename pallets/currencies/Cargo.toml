@@ -44,6 +44,7 @@ std = [
     'scale-info/std',
     'frame-support/std',
     'frame-system/std',
+    'pallet-support/std',
     'frame-benchmarking/std',
     'sp-runtime/std',
     'sp-core/std',

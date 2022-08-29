@@ -83,6 +83,9 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 /// Asset ID for generic asset module.
 pub type AssetId = u64;
 
+/// NormalId ID for all module.
+pub type NormalId = u64;
+
 /// NFT class id for uniques
 pub type ClassId = u64;
 

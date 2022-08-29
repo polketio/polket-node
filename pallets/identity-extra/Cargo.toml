@@ -23,8 +23,6 @@ sp-io = { default-features = false, git = 'https://github.com/paritytech/substra
 sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
 sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
 
-
-
 # substrate pallets
 pallet-identity = { default-features = false, git = 'https://github.com/paritytech/substrate.git', tag = 'monthly-2022-01', version = '4.0.0-dev' }
 

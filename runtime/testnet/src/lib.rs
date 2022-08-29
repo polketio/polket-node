@@ -105,7 +105,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("polket"),
 	impl_name: create_runtime_str!("polket"),
 	authoring_version: 1,
-	spec_version: 3,
+	spec_version: 6,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -495,6 +495,7 @@ impl pallet_unique_id::Config for Runtime {
 	type ClassId = ClassId;
 	type InstanceId = InstanceId;
 	type AssetId = AssetId;
+	type NormalId = NormalId;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -646,31 +647,31 @@ parameter_types! {
 }
 
 
-impl pallet_vfe::Config for Runtime {
-	type Event = Event;
-	type CreateOrigin = frame_system::EnsureRoot<AccountId>;
-	type RoleOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
-	type ProducerId = u32;
-	type Currencies = Currencies;
-	type PalletId = SportPalletId;
-	type UniqueId = UniqueId;
-	type UniquesInstance = CouponsInstance;
-	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
-	type Currency = Balances;
-	type MaxGenerateRandom = MaxGenerateRandom;
-	type Electric = Electric;
-	type CommonMin = CommonMin;
-	type CommonMax = CommonMin;
-	type EliteMin = EliteMin;
-	type EliteMax = EliteMax;
-	type RareMin = RareMin;
-	type RareMax = RareMax;
-	type EpicMin = EpicMin;
-	type EpicMax = EpicMax;
-	type IncentiveToken = IncentiveToken;
-	type NativeToken = NativeToken;
-	type UnbindFee = UnbindFee;
-}
+// impl pallet_vfe::Config for Runtime {
+// 	type Event = Event;
+// 	type CreateOrigin = frame_system::EnsureRoot<AccountId>;
+// 	type RoleOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
+// 	type ProducerId = u32;
+// 	type Currencies = Currencies;
+// 	type PalletId = SportPalletId;
+// 	type UniqueId = UniqueId;
+// 	type UniquesInstance = CouponsInstance;
+// 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
+// 	type Currency = Balances;
+// 	type MaxGenerateRandom = MaxGenerateRandom;
+// 	type Electric = Electric;
+// 	type CommonMin = CommonMin;
+// 	type CommonMax = CommonMin;
+// 	type EliteMin = EliteMin;
+// 	type EliteMax = EliteMax;
+// 	type RareMin = RareMin;
+// 	type RareMax = RareMax;
+// 	type EpicMin = EpicMin;
+// 	type EpicMax = EpicMax;
+// 	type IncentiveToken = IncentiveToken;
+// 	type NativeToken = NativeToken;
+// 	type UnbindFee = UnbindFee;
+// }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -699,7 +700,7 @@ construct_runtime!(
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template::{Pallet, Call, Storage, Event<T>},
-		AssetsModule: pallet_assets::{Pallet, Storage, Event<T>, Config<T>},
+		AssetsModule: pallet_assets::{Pallet,Call, Storage, Event<T>, Config<T>},
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>},
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
 		CouponsUniques: pallet_uniques::<Instance2>::{Pallet, Storage, Event<T>},
@@ -707,7 +708,7 @@ construct_runtime!(
 		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
 		Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
-		VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>},
+		// VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
