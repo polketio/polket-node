@@ -1,0 +1,19 @@
+[profile.release]
+panic = 'unwind'
+
+[workspace]
+members = [
+    'node',
+    'pallets/template',
+    'pallets/identity-extra',
+    'pallets/support',
+    'pallets/unique-id',
+   'pallets/vfe',
+	# 'pallets/vfe-order',
+    'pallets/currencies',
+    'pallets/buyback',
+	#'pallets/vfemart-traits',
+    'runtime/*',
+#	'pallets/vfe-auction',
+    'primitives',
+]
