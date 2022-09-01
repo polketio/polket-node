@@ -22,7 +22,7 @@ impl Default for CouponType {
 	}
 }
 
-#[derive(Encode, Decode, Default, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive( Decode, Default, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct CouponInfo<AssetId, Balance, BlockNumber> {
 	pub coupon_type: CouponType,
 	pub asset_id: AssetId,
@@ -32,7 +32,7 @@ pub struct CouponInfo<AssetId, Balance, BlockNumber> {
 	pub issued: u32,
 	pub period: BlockNumber,
 	pub start: BlockNumber,
-	pub permit_pk: Option<H256>,
+	// pub permit_pk: Option<H256>,
 	pub nonce: u64,
 	pub support_overlay: bool,
 }
@@ -41,15 +41,15 @@ pub trait CouponsHandler<AccountId>: Inspect<AccountId> {
 	type AssetId;
 	type Balance;
 
-	/// Return if a `ClassId` coupon payment with a specific asset.
-	fn payment_asset(class: &Self::ClassId) -> Option<Self::AssetId>;
+	/// Return if a `CollectionId` coupon payment with a specific asset.
+	fn payment_asset(class: &Self::CollectionId) -> Option<Self::AssetId>;
 
 	/// try_use_coupons
 	/// Try to use the coupon, check if the coupon is available and if the owner has it
 	/// call `f: FnOnce(bool, Self::Balance)`, pass (is_can_use, discounted_price)
 	/// if `f()` return ok, handling the final recycling logic of coupons
-	fn try_use_coupons<R, E: From<&'static str>, F: FnOnce(bool, Self::Balance, Vec<(&Self::ClassId, &Self::InstanceId, &AccountId)>) -> Result<R, E>>(
-		coupons: Vec<(Self::ClassId, Self::InstanceId)>,
+	fn try_use_coupons<R, E: From<&'static str>, F: FnOnce(bool, Self::Balance, Vec<(&Self::CollectionId, &Self::ItemId, &AccountId)>) -> Result<R, E>>(
+		coupons: Vec<(Self::CollectionId, Self::ItemId)>,
 		owner: &AccountId,
 		payment: (Self::AssetId, Self::Balance),
 		target: &AccountId,

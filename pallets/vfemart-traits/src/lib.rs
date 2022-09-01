@@ -42,40 +42,40 @@ pub trait VfemartConfig<AccountId, BlockNumber> {
 	fn get_min_commission_agent_deposit() -> Balance;
 }
 
-pub trait VfemartOrder<AccountId, ClassId, InstanceId> {
-	fn burn_orders(owner: &AccountId, class_id: ClassId, instance_id: InstanceId) -> DispatchResult;
-	fn burn_offers(owner: &AccountId, class_id: ClassId, instance_id: InstanceId) -> DispatchResult;
+pub trait VfemartOrder<AccountId, CollectionId, ItemId> {
+	fn burn_orders(owner: &AccountId, class_id: CollectionId, instance_id: ItemId) -> DispatchResult;
+	fn burn_offers(owner: &AccountId, class_id: CollectionId, instance_id: ItemId) -> DispatchResult;
 }
 
-pub trait VfemartVfe<AccountId, ClassId, InstanceId> {
-	fn peek_next_class_id() -> ClassId;
+pub trait VfemartVfe<AccountId, CollectionId, ItemId> {
+	fn peek_next_class_id() -> CollectionId;
 	fn transfer(
 		from: &AccountId,
 		to: &AccountId,
-		class_id: ClassId,
-		instance_id: InstanceId,
-		quantity: InstanceId,
+		class_id: CollectionId,
+		instance_id: ItemId,
+		quantity: ItemId,
 	) -> DispatchResult;
 	fn account_token(
 		_who: &AccountId,
-		_class_id: ClassId,
-		_token_id: InstanceId,
-	) -> AccountToken<InstanceId>;
+		_class_id: CollectionId,
+		_token_id: ItemId,
+	) -> AccountToken<ItemId>;
 	fn reserve_tokens(
 		who: &AccountId,
-		class_id: ClassId,
-		instance_id: InstanceId,
-		quantity: InstanceId,
+		class_id: CollectionId,
+		instance_id: ItemId,
+		quantity: ItemId,
 	) -> DispatchResult;
 	fn unreserve_tokens(
 		who: &AccountId,
-		class_id: ClassId,
-		instance_id: InstanceId,
-		quantity: InstanceId,
+		class_id: CollectionId,
+		instance_id: ItemId,
+		quantity: ItemId,
 	) -> DispatchResult;
 	fn token_charged_royalty(
-		class_id: ClassId,
-		instance_id: InstanceId,
+		class_id: CollectionId,
+		instance_id: ItemId,
 	) -> Result<(AccountId, PerU16), DispatchError>;
 	fn create_class(
 		who: &AccountId,
@@ -85,25 +85,25 @@ pub trait VfemartVfe<AccountId, ClassId, InstanceId> {
 		royalty_rate: PerU16,
 		properties: Properties,
 		category_ids: Vec<GlobalId>,
-	) -> ResultPost<(AccountId, ClassId)>;
+	) -> ResultPost<(AccountId, CollectionId)>;
 	fn update_class(
 		who: &AccountId,
-		class_id: ClassId,
+		class_id: CollectionId,
 		metadata: VFEMetadata,
 		name: Vec<u8>,
 		description: Vec<u8>,
 		royalty_rate: PerU16,
 		properties: Properties,
 		category_ids: Vec<GlobalId>,
-	) -> ResultPost<(AccountId, ClassId)>;
+	) -> ResultPost<(AccountId, CollectionId)>;
 	fn proxy_mint(
 		delegate: &AccountId,
 		to: &AccountId,
-		class_id: ClassId,
+		class_id: CollectionId,
 		metadata: VFEMetadata,
-		quantity: InstanceId,
+		quantity: ItemId,
 		charge_royalty: Option<PerU16>,
-	) -> ResultPost<(AccountId, AccountId, ClassId, InstanceId, InstanceId)>;
+	) -> ResultPost<(AccountId, AccountId, CollectionId, ItemId, ItemId)>;
 }
 
 #[repr(u8)]
@@ -146,13 +146,13 @@ impl TypeInfo for Properties {
 
 /// Account Token
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct AccountToken<InstanceId> {
+pub struct AccountToken<ItemId> {
 	/// account token number.
 	#[codec(compact)]
-	pub quantity: InstanceId,
+	pub quantity: ItemId,
 	/// account reserved token number.
 	#[codec(compact)]
-	pub reserved: InstanceId,
+	pub reserved: ItemId,
 }
 
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo)]
@@ -204,24 +204,24 @@ pub struct CategoryData {
 
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct OrderItem<ClassId, InstanceId> {
+pub struct OrderItem<CollectionId, ItemId> {
 	/// class id
 	#[codec(compact)]
-	pub class_id: ClassId,
+	pub class_id: CollectionId,
 	/// token id
 	#[codec(compact)]
-	pub instance_id: InstanceId,
+	pub instance_id: ItemId,
 	/// quantity
 	#[codec(compact)]
-	pub quantity: InstanceId,
+	pub quantity: ItemId,
 }
 
 #[cfg(feature = "std")]
 #[derive(
 	Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, Serialize, Deserialize, Default, TypeInfo,
 )]
-pub struct ClassConfig<ClassId, AccountId, InstanceId> {
-	pub class_id: ClassId,
+pub struct ClassConfig<CollectionId, AccountId, ItemId> {
+	pub class_id: CollectionId,
 	pub class_metadata: String,
 	pub category_ids: Vec<GlobalId>,
 	pub name: String,
@@ -229,31 +229,31 @@ pub struct ClassConfig<ClassId, AccountId, InstanceId> {
 	pub royalty_rate: PerU16,
 	pub properties: u8,
 	pub admins: Vec<AccountId>,
-	pub tokens: Vec<TokenConfig<AccountId, InstanceId>>,
+	pub tokens: Vec<TokenConfig<AccountId, ItemId>>,
 }
 
 #[cfg(feature = "std")]
 #[derive(
 	Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, Serialize, Deserialize, Default, TypeInfo,
 )]
-pub struct TokenConfig<AccountId, InstanceId> {
-	pub instance_id: InstanceId,
+pub struct TokenConfig<AccountId, ItemId> {
+	pub instance_id: ItemId,
 	pub token_metadata: String,
 	pub royalty_rate: PerU16,
 	pub token_owner: AccountId,
 	pub token_creator: AccountId,
 	pub royalty_beneficiary: AccountId,
-	pub quantity: InstanceId,
+	pub quantity: ItemId,
 }
 
 /// Check only one royalty constrains.
-pub fn count_charged_royalty<AccountId, ClassId, InstanceId, VFE>(
-	items: &[(ClassId, InstanceId, InstanceId)],
+pub fn count_charged_royalty<AccountId, CollectionId, ItemId, VFE>(
+	items: &[(CollectionId, ItemId, ItemId)],
 ) -> ResultPost<(u32, AccountId, PerU16)>
 where
-	VFE: VfemartVfe<AccountId, ClassId, InstanceId>,
-	ClassId: Copy,
-	InstanceId: Copy,
+	VFE: VfemartVfe<AccountId, CollectionId, ItemId>,
+	CollectionId: Copy,
+	ItemId: Copy,
 	AccountId: Default,
 {
 	let mut count_of_charged_royalty: u32 = 0;
@@ -272,12 +272,12 @@ where
 
 /// Swap assets between vfes owner and vfes purchaser.
 #[allow(clippy::too_many_arguments)]
-pub fn swap_assets<MultiCurrency, VFE, AccountId, ClassId, InstanceId, AssetId>(
+pub fn swap_assets<MultiCurrency, VFE, AccountId, CollectionId, ItemId, AssetId>(
 	pay_currency: &AccountId,
 	pay_vfes: &AccountId,
 	asset_id: AssetId,
 	price: Balance,
-	items: &[(ClassId, InstanceId, InstanceId)],
+	items: &[(CollectionId, ItemId, ItemId)],
 	treasury: &AccountId,
 	platform_fee_rate: PerU16,
 	beneficiary: &AccountId,
@@ -286,9 +286,9 @@ pub fn swap_assets<MultiCurrency, VFE, AccountId, ClassId, InstanceId, AssetId>(
 ) -> ResultPost<()>
 where
 	MultiCurrency:MultiAssets<AccountId,AssetId = AssetId,Balance = Balance> + Transfer<AccountId,AssetId = AssetId,Balance = Balance> + MultiAssetsMutate<AccountId,AssetId = AssetId,Balance = Balance>,
-	VFE: VfemartVfe<AccountId, ClassId, InstanceId>,
-	ClassId: Copy,
-	InstanceId: Copy,
+	VFE: VfemartVfe<AccountId, CollectionId, ItemId>,
+	CollectionId: Copy,
+	ItemId: Copy,
 	AssetId: Copy,
 {
 	let trading_fee = platform_fee_rate.mul_ceil(price);
@@ -313,9 +313,9 @@ where
 macro_rules! to_item_vec {
 	($obj: ident, $commission_agent: ident) => {{
 		let items = $obj.items.iter().map(|x| (x.class_id, x.instance_id, x.quantity)).collect::<Vec<(
-			ClassIdOf<T>,
-			InstanceIdOf<T>,
-			InstanceIdOf<T>,
+			CollectionIdOf<T>,
+			ItemIdOf<T>,
+			ItemIdOf<T>,
 		)>>();
 
 		let commission_agent: Option<(bool, T::AccountId, PerU16)> =
@@ -338,7 +338,7 @@ macro_rules! to_item_vec {
 macro_rules! ensure_one_royalty {
 	($items: ident) => {{
 		let (c, id, r) =
-			count_charged_royalty::<T::AccountId, ClassIdOf<T>, InstanceIdOf<T>, T::VFE>(&$items)?;
+			count_charged_royalty::<T::AccountId, CollectionIdOf<T>, ItemIdOf<T>, T::VFE>(&$items)?;
 		ensure!(c <= 1, Error::<T>::TooManyTokenChargedRoyalty);
 		(id, r)
 	}};
@@ -374,15 +374,15 @@ macro_rules! vfe_err {
 	};
 }
 
-pub fn reserve_and_push_tokens<AccountId, ClassId, InstanceId, VFE>(
+pub fn reserve_and_push_tokens<AccountId, CollectionId, ItemId, VFE>(
 	vfe_owner: Option<&AccountId>,
-	items: &[(ClassId, InstanceId, InstanceId)],
-	push_to: &mut Vec<OrderItem<ClassId, InstanceId>>,
+	items: &[(CollectionId, ItemId, ItemId)],
+	push_to: &mut Vec<OrderItem<CollectionId, ItemId>>,
 ) -> ResultPost<()>
 where
-	VFE: VfemartVfe<AccountId, ClassId, InstanceId>,
-	ClassId: Copy,
-	InstanceId: Copy,
+	VFE: VfemartVfe<AccountId, CollectionId, ItemId>,
+	CollectionId: Copy,
+	ItemId: Copy,
 {
 	for &(class_id, instance_id, quantity) in items {
 		if let Some(vfe_owner) = vfe_owner {

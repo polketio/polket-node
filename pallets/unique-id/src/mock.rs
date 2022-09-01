@@ -59,8 +59,8 @@ impl frame_system::Config for Test {
 }
 
 impl pallet_unique_id::Config for Test {
-	type ClassId = u32;
-	type InstanceId = u32;
+	type CollectionId = u32;
+	type ItemId = u32;
 	type AssetId = u32;
 }
 

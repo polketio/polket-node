@@ -24,7 +24,7 @@ pub const NATIVE_CURRENCY_ID: CurrencyId = 0;
 pub type Moment = u64;
 
 /// NFT class ID type.
-pub type ClassId = u32;
+pub type CollectionId = u32;
 
 /// NFT token ID type.
 pub type TokenId = u64;

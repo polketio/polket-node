@@ -10,7 +10,7 @@ members = [
    'pallets/vfe',
 	# 'pallets/vfe-order',
     'pallets/currencies',
-    'pallets/buyback',
+    # 'pallets/buyback',
 	#'pallets/vfemart-traits',
     'runtime/*',
 #	'pallets/vfe-auction',

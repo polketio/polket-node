@@ -166,8 +166,8 @@ parameter_types! {
 
 impl pallet_uniques::Config<Instance> for Test {
 	type Event = Event;
-	type ClassId = u32;
-	type InstanceId = u32;
+	type CollectionId = u32;
+	type ItemId = u32;
 	type Currency = Balances;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type ClassDeposit = ClassDeposit;
@@ -183,8 +183,8 @@ impl pallet_uniques::Config<Instance> for Test {
 
 impl pallet_uniques::Config for Test {
 	type Event = Event;
-	type ClassId = u32;
-	type InstanceId = u32;
+	type CollectionId = u32;
+	type ItemId = u32;
 	type Currency = Balances;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type ClassDeposit = ClassDeposit;
@@ -199,8 +199,8 @@ impl pallet_uniques::Config for Test {
 }
 
 impl pallet_unique_id::Config for Test {
-	type ClassId = u32;
-	type InstanceId = u32;
+	type CollectionId = u32;
+	type ItemId = u32;
 	type AssetId = u32;
 	type NormalId = u32;
 }

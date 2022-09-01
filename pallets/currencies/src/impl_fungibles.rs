@@ -61,11 +61,12 @@ impl<T: Config> fungibles::Inspect<<T as SystemConfig>::AccountId> for Pallet<T>
 		asset: Self::AssetId,
 		who: &<T as SystemConfig>::AccountId,
 		amount: Self::Balance,
+		mint :bool,
 	) -> DepositConsequence {
 		if asset == T::NativeToken::get() {
-			<T::NativeCurrency as fungible::Inspect<_>>::can_deposit(who, amount)
+			<T::NativeCurrency as fungible::Inspect<_>>::can_deposit(who, amount,mint)
 		} else {
-			T::MultiCurrency::can_deposit(asset, who, amount)
+			T::MultiCurrency::can_deposit(asset, who, amount,mint)
 		}
 	}
 

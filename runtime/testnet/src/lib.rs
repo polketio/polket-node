@@ -311,8 +311,8 @@ parameter_types! {
 
 impl pallet_uniques::Config for Runtime {
 	type Event = Event;
-	type ClassId = ClassId;
-	type InstanceId = InstanceId;
+	type CollectionId = CollectionId;
+	type ItemId = ItemId;
 	type Currency = Balances;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type ClassDeposit = ClassDeposit;
@@ -329,8 +329,8 @@ impl pallet_uniques::Config for Runtime {
 
 impl pallet_uniques::Config<CouponsInstance> for Runtime {
 	type Event = Event;
-	type ClassId = ClassId;
-	type InstanceId = InstanceId;
+	type CollectionId = CollectionId;
+	type ItemId = ItemId;
 	type Currency = Balances;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type ClassDeposit = ClassDeposit;
@@ -487,8 +487,8 @@ impl pallet_staking::Config for Runtime {
 
 
 impl pallet_unique_id::Config for Runtime {
-	type ClassId = ClassId;
-	type InstanceId = InstanceId;
+	type CollectionId = CollectionId;
+	type ItemId = ItemId;
 	type AssetId = AssetId;
 	type NormalId = NormalId;
 }
@@ -618,9 +618,9 @@ impl pallet_multisig::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl pallet_buyback::Config for Runtime {
-	type Event = Event;
-}
+// impl pallet_buyback::Config for Runtime {
+// 	type Event = Event;
+// }
 
 parameter_types! {
 	pub const MaxGenerateRandom: u32 = 1000000;
@@ -700,7 +700,7 @@ construct_runtime!(
 		IdentityExtra: pallet_identity_extra::{Pallet, Call, Storage, Event<T>},
 		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
-		Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
+		// Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
 		VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>},
 	}
 );

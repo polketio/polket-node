@@ -38,6 +38,7 @@ frame_support::construct_runtime!(
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 	pub const SS58Prefix: u8 = 42;
+
 }
 
 impl system::Config for Test {
@@ -59,6 +60,7 @@ impl system::Config for Test {
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -88,6 +90,7 @@ parameter_types! {
 	pub const StringLimit: u32 = 256;
 	pub const MetadataDepositBase: u64 = 1;
 	pub const MetadataDepositPerByte: u64 = 1;
+	pub const AssetAccountDeposit: u64 = 1;
 }
 
 impl pallet_assets::Config for Test {
@@ -104,6 +107,7 @@ impl pallet_assets::Config for Test {
 	type Freezer = TestFreezer;
 	type WeightInfo = ();
 	type Extra = ();
+	type AssetAccountDeposit = AssetAccountDeposit;
 }
 
 use std::{cell::RefCell, collections::HashMap};

@@ -25,9 +25,9 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The class ID type
-		type ClassId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + HasCompact;
+		type CollectionId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + HasCompact + MaxEncodedLen;
 		/// The token ID type
-		type InstanceId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + HasCompact;
+		type ItemId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + HasCompact + MaxEncodedLen;
 		/// The asset ID type
 		type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + HasCompact;
 		/// The asset ID type
@@ -42,13 +42,13 @@ pub mod pallet {
 	/// Next available class ID.
 	#[pallet::storage]
 	#[pallet::getter(fn next_class_id)]
-	pub type NextClassId<T: Config> = StorageValue<_, T::ClassId, ValueQuery>;
+	pub type NextCollectionId<T: Config> = StorageValue<_, T::CollectionId, ValueQuery>;
 
 	/// Next available instance ID.
 	#[pallet::storage]
 	#[pallet::getter(fn next_instance_id)]
-	pub type NextInstanceId<T: Config> =
-		StorageMap<_, Twox64Concat, T::ClassId, T::InstanceId, ValueQuery>;
+	pub type NextItemId<T: Config> =
+		StorageMap<_, Twox64Concat, T::CollectionId, T::ItemId, ValueQuery>;
 
 
 	/// Next available asset ID.
@@ -70,19 +70,19 @@ pub mod pallet {
 		/// Value overflow.
 		ValueOverflow,
 		/// Class id is not existed
-		ClassIdIsNotExisted,
+		CollectionIdIsNotExisted,
 	}
 }
 
 impl<T: Config> UniqueIdGenerator for Pallet<T> {
-	type ClassId = T::ClassId;
-	type InstanceId = T::InstanceId;
+	type CollectionId = T::CollectionId;
+	type ItemId = T::ItemId;
 	type AssetId = T::AssetId;
 	type NormalId = T::NormalId;
 
 	/// generate new class id: Return the current ID, and increment the current ID
-	fn generate_class_id() -> Result<Self::ClassId, sp_runtime::DispatchError> {
-		let class_id = NextClassId::<T>::try_mutate(|id| -> Result<T::ClassId, DispatchError> {
+	fn generate_class_id() -> Result<Self::CollectionId, sp_runtime::DispatchError> {
+		let class_id = NextCollectionId::<T>::try_mutate(|id| -> Result<T::CollectionId, DispatchError> {
 			let current_id = *id;
 			*id = id.checked_add(&One::one()).ok_or(Error::<T>::ValueOverflow)?;
 			Ok(current_id)
@@ -92,14 +92,14 @@ impl<T: Config> UniqueIdGenerator for Pallet<T> {
 
 	/// generate new instance id with class id: Return the current ID, and increment the current ID
 	fn generate_instance_id(
-		class_id: Self::ClassId,
-	) -> Result<Self::InstanceId, sp_runtime::DispatchError> {
+		class_id: Self::CollectionId,
+	) -> Result<Self::ItemId, sp_runtime::DispatchError> {
 		//Check Is class_id generated?
-		ensure!(class_id < Self::next_class_id(), Error::<T>::ClassIdIsNotExisted);
+		ensure!(class_id < Self::next_class_id(), Error::<T>::CollectionIdIsNotExisted);
 
-		let instance_id = NextInstanceId::<T>::try_mutate(
+		let instance_id = NextItemId::<T>::try_mutate(
 			class_id,
-			|id| -> Result<T::InstanceId, DispatchError> {
+			|id| -> Result<T::ItemId, DispatchError> {
 				let current_id = *id;
 				*id = id.checked_add(&One::one()).ok_or(Error::<T>::ValueOverflow)?;
 				Ok(current_id)

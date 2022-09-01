@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, scale_info::TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct BritishAuction<CurrencyId, BlockNumber, ClassId, InstanceId> {
+pub struct BritishAuction<CurrencyId, BlockNumber, CollectionId, ItemId> {
 	/// currency ID for this auction
 	#[codec(compact)]
 	pub currency_id: CurrencyId,
@@ -27,7 +27,7 @@ pub struct BritishAuction<CurrencyId, BlockNumber, ClassId, InstanceId> {
 	/// If true, the real deadline will be max(deadline, last_bid_block + delay).
 	pub allow_delay: bool,
 	/// nft list
-	pub items: Vec<OrderItem<ClassId, InstanceId>>,
+	pub items: Vec<OrderItem<CollectionId, ItemId>>,
 	/// commission rate
 	#[codec(compact)]
 	pub commission_rate: PerU16,
@@ -50,7 +50,7 @@ pub struct BritishAuctionBid<AccountId, BlockNumber> {
 
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, scale_info::TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct DutchAuction<CurrencyId, BlockNumber, ClassId, TokenId> {
+pub struct DutchAuction<CurrencyId, BlockNumber, CollectionId, TokenId> {
 	#[codec(compact)]
 	pub currency_id: CurrencyId,
 	#[codec(compact)]
@@ -63,7 +63,7 @@ pub struct DutchAuction<CurrencyId, BlockNumber, ClassId, TokenId> {
 	pub deadline: BlockNumber,
 	#[codec(compact)]
 	pub created_block: BlockNumber,
-	pub items: Vec<OrderItem<ClassId, TokenId>>,
+	pub items: Vec<OrderItem<CollectionId, TokenId>>,
 	pub allow_british_auction: bool,
 	#[codec(compact)]
 	pub min_raise: PerU16,
@@ -85,8 +85,8 @@ impl Default for Releases {
 	}
 }
 
-pub type InstanceIdOf<T> = <T as pallet::Config>::InstanceId;
-pub type ClassIdOf<T> = <T as pallet::Config>::ClassId;
+pub type ItemIdOf<T> = <T as pallet::Config>::ItemId;
+pub type CollectionIdOf<T> = <T as pallet::Config>::CollectionId;
 pub type BalanceOf<T> =
 	<<T as pallet::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 pub type CurrencyIdOf<T> = <<T as pallet::Config>::MultiCurrency as MultiCurrency<
@@ -95,9 +95,9 @@ pub type CurrencyIdOf<T> = <<T as pallet::Config>::MultiCurrency as MultiCurrenc
 pub type BlockNumberOf<T> = <T as frame_system::Config>::BlockNumber;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type BritishAuctionOf<T> =
-	BritishAuction<CurrencyIdOf<T>, BlockNumberFor<T>, ClassIdOf<T>, InstanceIdOf<T>>;
+	BritishAuction<CurrencyIdOf<T>, BlockNumberFor<T>, CollectionIdOf<T>, ItemIdOf<T>>;
 pub type BritishAuctionBidOf<T> = BritishAuctionBid<AccountIdOf<T>, BlockNumberFor<T>>;
 pub type DutchAuctionOf<T> =
-	DutchAuction<CurrencyIdOf<T>, BlockNumberFor<T>, ClassIdOf<T>, InstanceIdOf<T>>;
+	DutchAuction<CurrencyIdOf<T>, BlockNumberFor<T>, CollectionIdOf<T>, ItemIdOf<T>>;
 pub type DutchAuctionBidOf<T> = DutchAuctionBid<AccountIdOf<T>, BlockNumberFor<T>>;
 pub const DESC_INTERVAL: BlockNumber = time::MINUTES * 30;

@@ -19,7 +19,7 @@ fn generate_instance_id_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			crate::Pallet::<Test>::generate_instance_id(0u32),
-			Error::<Test>::ClassIdIsNotExisted
+			Error::<Test>::CollectionIdIsNotExisted
 		);
 		assert_ok!(crate::Pallet::<Test>::generate_class_id(), 0u32);
 		assert_ok!(crate::Pallet::<Test>::generate_instance_id(0u32), 0u32);

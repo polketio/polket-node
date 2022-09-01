@@ -87,10 +87,10 @@ pub type AssetId = u64;
 pub type NormalId = u64;
 
 /// NFT class id for uniques
-pub type ClassId = u64;
+pub type CollectionId = u64;
 
 /// NFT instance id for uniques
-pub type InstanceId = u64;
+pub type ItemId = u64;
 
 /// 4 length of byte
 pub type Byte4 = [u8; 4];

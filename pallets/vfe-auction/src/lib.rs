@@ -89,16 +89,16 @@ pub mod pallet {
 		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// The class ID type
-		type ClassId: Member + Parameter + Default + Copy + HasCompact;
+		type CollectionId: Member + Parameter + Default + Copy + HasCompact;
 
 		/// The class ID type
 		type GlobalId: Member + Parameter + Default + Copy + HasCompact;
 
 		/// The token ID type
-		type InstanceId: Member + Parameter + Default + Copy + HasCompact + From<u16>;
+		type ItemId: Member + Parameter + Default + Copy + HasCompact + From<u16>;
 
 		/// NFTMart nft
-		type VFE: NftmartNft<Self::AccountId, Self::ClassId, Self::TokenId>;
+		type VFE: NftmartNft<Self::AccountId, Self::CollectionId, Self::TokenId>;
 
 		/// Extra Configurations
 		type ExtraConfig: NftmartConfig<Self::AccountId, BlockNumberFor<Self>>;
@@ -107,8 +107,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type TreasuryPalletId: Get<frame_support::PalletId>;
 
-		/// UniqueId is used to generate new ClassId or InstanceId.
-		type UniqueId: UniqueIdGenerator<ClassId=Self::ClassId, AssetId=AssetIdOf<Self>, InstanceId=Self::InstanceId>;
+		/// UniqueId is used to generate new CollectionId or ItemId.
+		type UniqueId: UniqueIdGenerator<CollectionId=Self::CollectionId, AssetId=AssetIdOf<Self>, ItemId=Self::ItemId>;
 
 	}
 
@@ -233,7 +233,7 @@ pub mod pallet {
 			#[pallet::compact] min_price: Balance,
 			#[pallet::compact] max_price: Balance,
 			#[pallet::compact] deadline: BlockNumberOf<T>,
-			items: Vec<(ClassIdOf<T>, TokenIdOf<T>, TokenIdOf<T>)>,
+			items: Vec<(CollectionIdOf<T>, TokenIdOf<T>, TokenIdOf<T>)>,
 			allow_british_auction: bool,
 			#[pallet::compact] min_raise: PerU16,
 			#[pallet::compact] commission_rate: PerU16,
@@ -506,7 +506,7 @@ pub mod pallet {
 			#[pallet::compact] init_price: Balance,
 			#[pallet::compact] deadline: BlockNumberOf<T>,
 			allow_delay: bool,
-			items: Vec<(ClassIdOf<T>, TokenIdOf<T>, TokenIdOf<T>)>,
+			items: Vec<(CollectionIdOf<T>, TokenIdOf<T>, TokenIdOf<T>)>,
 			#[pallet::compact] commission_rate: PerU16,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;

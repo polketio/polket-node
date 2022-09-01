@@ -20,21 +20,21 @@ pub trait Approval<AccountId>: Inspect<AccountId> {
 	type ApprovalInfo: FullCodec + Clone + Debug + TypeInfo;
 
 	// Check the approval info approved by an NFT class to be minted by a delegate
-	fn allowance_mint(class: Self::ClassId, delegate: &AccountId) -> Option<Self::ApprovalInfo>;
+	fn allowance_mint(class: Self::CollectionId, delegate: &AccountId) -> Option<Self::ApprovalInfo>;
 
 	// Aprove a delegate account to mint an `instance` of `class` owned by an NFT class owner
 	fn approve_mint(
-		class: Self::ClassId,
+		class: Self::CollectionId,
 		operator: &AccountId,
 		delegate: &AccountId,
 		approval: Self::ApprovalInfo,
 	) -> DispatchResult;
 
 	// Mint some asset `instance` of `class` from a delegate approved by the owner of the NFT
-	fn mint_from(_class: Self::ClassId, delegate: &AccountId, _who: &AccountId) -> Result<Self::InstanceId, sp_runtime::DispatchError>;
+	fn mint_from(_class: Self::CollectionId, delegate: &AccountId, _who: &AccountId) -> Result<Self::ItemId, sp_runtime::DispatchError>;
 
 	// Get the class owner
 	fn owner(
-		class: &Self::ClassId,
+		class: &Self::CollectionId,
 	) -> Option<AccountId>;
 }

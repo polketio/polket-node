@@ -189,7 +189,7 @@ impl nftmart_order::Config for Runtime {
 	type Event = Event;
 	type MultiCurrency = Currencies;
 	type Currency = Balances;
-	type ClassId = vfemart_traits::constants_types::ClassId;
+	type CollectionId = vfemart_traits::constants_types::CollectionId;
 	type TokenId = vfemart_traits::constants_types::TokenId;
 	type NFT = Nftmart;
 	type ExtraConfig = NftmartConf;
@@ -219,7 +219,7 @@ pub const ALICE: AccountId = AccountId::new([1u8; 32]);
 pub const BOB: AccountId = AccountId::new([2u8; 32]);
 pub const CHARLIE: AccountId = AccountId::new([3u8; 32]);
 pub const DAVE: AccountId = AccountId::new([4u8; 32]);
-// pub const CLASS_ID0: <Runtime as orml_nft::Config>::ClassId = 0;
+// pub const CLASS_ID0: <Runtime as orml_nft::Config>::CollectionId = 0;
 // pub const TOKEN_ID0: <Runtime as orml_nft::Config>::TokenId = 0;
 // pub const TOKEN_ID1: <Runtime as orml_nft::Config>::TokenId = 1;
 

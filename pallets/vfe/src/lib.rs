@@ -149,8 +149,8 @@ pub struct Producer<Account, ProducerId, Balance> {
 
 #[derive(Eq, PartialEq, Clone, RuntimeDebug, Encode, Decode, TypeInfo)]
 #[scale_info(skip_type_params(StringLimit))]
-pub struct DeviceType<ClassId, ProducerId, StringLimit: Get<u32>> {
-	class_id: ClassId,
+pub struct DeviceType<CollectionId, ProducerId, StringLimit: Get<u32>> {
+	class_id: CollectionId,
 	sport_type: SportType,
 	note: BoundedVec<u8, StringLimit>,
 	producer_id: ProducerId,
@@ -217,8 +217,8 @@ pub mod pallet {
 		type Currencies: MultiAssets<Self::AccountId>
 		+ Transfer<Self::AccountId> + MultiAssetsMutate<Self::AccountId>;
 
-		/// UniqueId is used to generate new ClassId or InstanceId.
-		type UniqueId: UniqueIdGenerator<ClassId=Self::ClassId, AssetId=AssetIdOf<Self>, InstanceId=Self::InstanceId>;
+		/// UniqueId is used to generate new CollectionId or ItemId.
+		type UniqueId: UniqueIdGenerator<CollectionId=Self::CollectionId, AssetId=AssetIdOf<Self>, ItemId=Self::ItemId>;
 
 		/// The pallet id
 		#[pallet::constant]
@@ -305,8 +305,8 @@ pub mod pallet {
 	pub(crate) type DeviceTypes<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		T::ClassId,
-		DeviceType<T::ClassId, T::ProducerId, T::StringLimit>,
+		T::CollectionId,
+		DeviceType<T::CollectionId, T::ProducerId, T::StringLimit>,
 		OptionQuery,
 	>;
 
@@ -328,7 +328,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		[u8;33],
-		Device<T::ClassId, T::ProducerId, T::InstanceId>,
+		Device<T::CollectionId, T::ProducerId, T::ItemId>,
 		OptionQuery,
 	>;
 
@@ -338,10 +338,10 @@ pub mod pallet {
 	pub(super) type DeviceVFEs<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		T::ClassId,
+		T::CollectionId,
 		Twox64Concat,
-		T::InstanceId,
-		DeviceVFE<T::ClassId, T::InstanceId, T::Hash,T::BlockNumber>,
+		T::ItemId,
+		DeviceVFE<T::CollectionId, T::ItemId, T::Hash,T::BlockNumber>,
 		OptionQuery,
 	>;
 
@@ -401,34 +401,34 @@ pub mod pallet {
 		ProducerWithdraw(T::AccountId, T::ProducerId, AssetIdOf<T>, BalanceOf<T>),
 
 		/// Created device type class. \[executor, class_id,producer_id,sport_type,  note\]
-		DeviceTypeCreate(T::AccountId, T::ClassId, T::ProducerId, SportType, Vec<u8>),
+		DeviceTypeCreate(T::AccountId, T::CollectionId, T::ProducerId, SportType, Vec<u8>),
 
 		/// Register device. \[producer, public_key,  class\]
-		RegisterDevice(T::AccountId,[u8;33], T::ClassId),
+		RegisterDevice(T::AccountId,[u8;33], T::CollectionId),
 
 		/// Create DeviceVFE. \[miner, class_id, instance_id, note  note\]
-		CreateDeviceVFE(T::AccountId, T::ClassId, T::InstanceId, Rarity),
+		CreateDeviceVFE(T::AccountId, T::CollectionId, T::ItemId, Rarity),
 
 		/// Minted Art Toy vfe token. \[class, instance, owner\]
-		Issued(T::ClassId, T::InstanceId, T::AccountId),
+		Issued(T::CollectionId, T::ItemId, T::AccountId),
 
 		/// An asset `instance` was transferred. \[ class, instance, from, to \]
-		Transferred(T::ClassId, T::InstanceId, T::AccountId, T::AccountId),
+		Transferred(T::CollectionId, T::ItemId, T::AccountId, T::AccountId),
 
 		/// An asset `instance` was destroyed. \[ class, instance, owner \]
-		Burned(T::ClassId, T::InstanceId, T::AccountId),
+		Burned(T::CollectionId, T::ItemId, T::AccountId),
 
 		/// Bind the device with vfe. \[ owner,public_key, class, instance  \]
-		BindDevice(T::AccountId,[u8;33], T::ClassId,T::InstanceId),
+		BindDevice(T::AccountId,[u8;33], T::CollectionId,T::ItemId),
 
 		/// UnBind the device with vfe. \[ owner,public_key, class,former instance  \]
-		UnBindDevice(T::AccountId, [u8;33], T::ClassId,T::InstanceId),
+		UnBindDevice(T::AccountId, [u8;33], T::CollectionId,T::ItemId),
 
 		/// Award from device with vfe. \[ owner, target_amount  \]
 		SportAward(T::AccountId, BalanceOf<T>),
 
 		/// PowerRecovery from device with vfe. \[ owner, use_amount,class, instance  \]
-		PowerRecovery(T::AccountId, BalanceOf<T>,T::ClassId,T::InstanceId),
+		PowerRecovery(T::AccountId, BalanceOf<T>,T::CollectionId,T::ItemId),
 
 
 		Sha256Test(Vec<u8>),
@@ -483,8 +483,8 @@ pub mod pallet {
 		OperationIsNotAllowedForTool,
 		/// InstanceNotFound
 		InstanceNotFound,
-		/// InstanceIdCannotBeNull
-		InstanceIdCannotBeNull,
+		/// ItemIdCannotBeNull
+		ItemIdCannotBeNull,
 		/// InstanceNotBelongAnyone
 		InstanceNotBelongAnyone,
 		/// InstanceNotBelongTheTarget
@@ -681,7 +681,7 @@ pub mod pallet {
 
 		/// create_class
 		/// - origin AccountId
-		/// - class_id ClassId
+		/// - class_id CollectionId
 		/// - meta_data Vec<u8>
 		#[pallet::weight(< T as pallet_uniques::Config < T::UniquesInstance >>::WeightInfo::create()
 		+ < T as pallet_uniques::Config < T::UniquesInstance >>::WeightInfo::set_class_metadata())]
@@ -730,14 +730,14 @@ pub mod pallet {
 		/// - origin AccountId
 		/// - puk   BoundedVec<u8, T::StringLimit>
 		/// - producer_id ProducerId
-		/// - class ClassId
+		/// - class CollectionId
 		#[pallet::weight(10_000)]
 		#[transactional]
 		pub fn register_device(
 			origin: OriginFor<T>,
 			puk: [u8;33],
 			producer_id: T::ProducerId,
-			class: T::ClassId,
+			class: T::CollectionId,
 		) -> DispatchResult {
 			let admin = T::RoleOrigin::ensure_origin(origin.clone())?;
 
@@ -778,7 +778,7 @@ pub mod pallet {
 			puk: [u8;33],
 			req_sig: BoundedVec<u8, T::StringLimit>,
 			nonce:u32,
-			ins_opt : Option<T::InstanceId>,
+			ins_opt : Option<T::ItemId>,
 		) -> DispatchResult {
 			let from = ensure_signed(origin.clone())?;
 
@@ -799,7 +799,7 @@ pub mod pallet {
 				Self::deposit_event(Event::BindDevice(from, puk.clone(), device.class_id,instance));
 
 			}else{
-				let instance = ins_opt.ok_or(Error::<T>::InstanceIdCannotBeNull)?;
+				let instance = ins_opt.ok_or(Error::<T>::ItemIdCannotBeNull)?;
 
 
 				if device.instance_id.is_some(){
@@ -901,14 +901,14 @@ pub mod pallet {
 
 		/// transfer vfe
 		/// - origin AccountId
-		/// - class ClassId
-		/// - instance InstanceId
+		/// - class CollectionId
+		/// - instance ItemId
 		/// - Source AccountId
 		#[pallet::weight(<T as pallet_uniques::Config<T::UniquesInstance>>::WeightInfo::transfer())]
 		pub fn power_recovery(
 			origin: OriginFor<T>,
-			#[pallet::compact] class: T::ClassId,
-			#[pallet::compact] instance: T::InstanceId,
+			#[pallet::compact] class: T::CollectionId,
+			#[pallet::compact] instance: T::ItemId,
 		) -> DispatchResult {
 
 			let from = ensure_signed(origin.clone())?;
@@ -960,14 +960,14 @@ pub mod pallet {
 
 		/// transfer vfe
 		/// - origin AccountId
-		/// - class ClassId
-		/// - instance InstanceId
+		/// - class CollectionId
+		/// - instance ItemId
 		/// - Source AccountId
 		#[pallet::weight(<T as pallet_uniques::Config<T::UniquesInstance>>::WeightInfo::transfer())]
 		pub fn transfer(
 			origin: OriginFor<T>,
-			#[pallet::compact] class: T::ClassId,
-			#[pallet::compact] instance: T::InstanceId,
+			#[pallet::compact] class: T::CollectionId,
+			#[pallet::compact] instance: T::ItemId,
 			dest: <T::Lookup as StaticLookup>::Source,
 		) -> DispatchResult {
 			let from = ensure_signed(origin.clone())?;
@@ -1074,8 +1074,8 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	pub fn do_mint(
-		class_id: T::ClassId,
-		instance_id: T::InstanceId,
+		class_id: T::CollectionId,
+		instance_id: T::ItemId,
 		owner: T::AccountId,
 	) -> DispatchResult {
 		pallet_uniques::Pallet::<T, T::UniquesInstance>::mint_into(
@@ -1087,7 +1087,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub fn do_burn(class_id: T::ClassId, instance_id: T::InstanceId) -> DispatchResult {
+	pub fn do_burn(class_id: T::CollectionId, instance_id: T::ItemId) -> DispatchResult {
 		let owner = Self::owner(&class_id, &instance_id).ok_or(Error::<T>::InstanceNotFound)?;
 		pallet_uniques::Pallet::<T, T::UniquesInstance>::burn_from(&class_id, &instance_id)?;
 		Self::deposit_event(Event::Burned(class_id, instance_id, owner));
@@ -1157,7 +1157,7 @@ impl<T: Config> Pallet<T> {
 						puk: [u8;33],
 						req_sig: BoundedVec<u8, T::StringLimit>,
 						nonce: u32,
-	) -> Result<Device<T::ClassId, T::ProducerId, T::InstanceId>, sp_runtime::DispatchError> {
+	) -> Result<Device<T::CollectionId, T::ProducerId, T::ItemId>, sp_runtime::DispatchError> {
 		// get the producer owner
 		let mut device =
 			Devices::<T>::get(puk.clone()).ok_or(Error::<T>::DeviceNotExist)?;
@@ -1196,7 +1196,7 @@ impl<T: Config> Pallet<T> {
 		puk: [u8;33],
 		req_sig: BoundedVec<u8, T::StringLimit>,
 		msg: BoundedVec<u8, T::StringLimit>,
-	) -> Result<Device<T::ClassId, T::ProducerId, T::InstanceId>, sp_runtime::DispatchError> {
+	) -> Result<Device<T::CollectionId, T::ProducerId, T::ItemId>, sp_runtime::DispatchError> {
 		// get the producer owner
 		let  device =
 			Devices::<T>::get(puk).ok_or(Error::<T>::DeviceNotExist)?;
@@ -1228,7 +1228,7 @@ impl<T: Config> Pallet<T> {
 
 	// decode the device's message.
 	fn decode_device_msg(
-		device: &mut Device<T::ClassId, T::ProducerId, T::InstanceId>,
+		device: &mut Device<T::CollectionId, T::ProducerId, T::ItemId>,
 		account:T::AccountId,
 		msg: BoundedVec<u8, T::StringLimit>,
 	) -> Result<(), sp_runtime::DispatchError> {
@@ -1394,10 +1394,10 @@ impl<T: Config> Pallet<T> {
 
 
 	pub fn create_vfe(
-		class_id: T::ClassId,
+		class_id: T::CollectionId,
 		miner: T::AccountId,
 		rarity: Rarity,
-	) -> Result<T::InstanceId, sp_runtime::DispatchError> {
+	) -> Result<T::ItemId, sp_runtime::DispatchError> {
 		let instance = T::UniqueId::generate_instance_id(class_id.clone())?;
 
 		let efficiency:u16;
