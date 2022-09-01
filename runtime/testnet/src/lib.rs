@@ -64,8 +64,6 @@ use pallet_transaction_payment::CurrencyAdapter;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-/// Import the template pallet.
-pub use pallet_template;
 
 pub use polket_primitives::*;
 
@@ -484,10 +482,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 }
 
-/// Configure the pallet-template in pallets/template.
-impl pallet_template::Config for Runtime {
-	type Event = Event;
-}
+
 
 
 
@@ -698,8 +693,6 @@ construct_runtime!(
 		TechnicalMembership: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>},
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
-		// Include the custom logic from the pallet-template in the runtime.
-		TemplateModule: pallet_template::{Pallet, Call, Storage, Event<T>},
 		AssetsModule: pallet_assets::{Pallet,Call, Storage, Event<T>, Config<T>},
 		Uniques: pallet_uniques::{Pallet, Storage, Event<T>},
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
@@ -986,7 +979,6 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, frame_system, SystemBench::<Runtime>);
 			list_benchmark!(list, extra, pallet_balances, Balances);
 			list_benchmark!(list, extra, pallet_timestamp, Timestamp);
-			list_benchmark!(list, extra, pallet_template, TemplateModule);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -1020,7 +1012,6 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_timestamp, Timestamp);
-			add_benchmark!(params, batches, pallet_template, TemplateModule);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
