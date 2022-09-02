@@ -25,13 +25,13 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The class ID type
-		type CollectionId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + HasCompact + MaxEncodedLen;
+		type CollectionId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 		/// The token ID type
-		type ItemId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + HasCompact + MaxEncodedLen;
+		type ItemId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 		/// The asset ID type
-		type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + HasCompact;
+		type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 		/// The asset ID type
-		type NormalId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + HasCompact;
+		type NormalId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 
 	}
 

@@ -63,8 +63,8 @@ pub mod fee {
 			smallvec![]
 		}
 
-		fn calc(_: &Weight) -> Self::Balance {
-			10 * super::currency::MICROCENTS
-		}
+		// fn calc(_: &Weight) -> Self::Balance {
+		// 	10 * super::currency::MICROCENTS
+		// }
 	}
 }

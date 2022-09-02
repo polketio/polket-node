@@ -13,7 +13,7 @@ use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
-	Perbill, Permill,
+	Perbill, Permill, BoundedVec,
 };
 
 // The URL for the telemetry server.
@@ -105,6 +105,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		None,
 		// Protocol ID
 		None,
+		// Fork ID
+		None,
 		// Properties
 		None,
 		// Extensions
@@ -162,6 +164,8 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		// Telemetry
 		None,
 		// Protocol ID
+		None,
+		//Fork ID
 		None,
 		// Properties
 		None,
@@ -244,7 +248,7 @@ fn testnet_genesis(
 		council: CouncilConfig { members: council, phantom: Default::default() },
 		technical_committee: Default::default(),
 		technical_membership: TechnicalMembershipConfig {
-			members: technical_committee,
+			members: BoundedVec::truncate_from(technical_committee),
 			phantom: Default::default(),
 		},
 		treasury: Default::default(),
@@ -266,6 +270,7 @@ pub fn polket_staging_testnet_config() -> Result<ChainSpec, String> {
 				.expect("Polket Staging telemetry url is valid; qed"),
 		),
 		Some(DEFAULT_PROTOCOL_ID),
+		None,
 		Some(properties()),
 		Default::default(),
 	))

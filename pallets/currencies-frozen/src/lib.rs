@@ -46,6 +46,7 @@ pub mod pallet {
 			+ Default
 			+ Copy
 			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
 			+ TypeInfo;
 
 		/// Identifier for the class of asset.
@@ -55,6 +56,7 @@ pub mod pallet {
 			+ Copy
 			+ HasCompact
 			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
 			+ TypeInfo;
 	}
 

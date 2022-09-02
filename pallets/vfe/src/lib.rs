@@ -73,7 +73,7 @@ mod tests;
 mod impl_nonfungibles;
 
 
-#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum DeviceStatus {
 	/// Registered
 	Registered = 0,
@@ -90,7 +90,7 @@ impl Default for DeviceStatus {
 }
 
 
-#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum SportType {
 	/// SkippingRope
 	SkippingRope = 0,
@@ -106,7 +106,7 @@ impl Default for SportType {
 	}
 }
 
-#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum Rarity {
 	/// Common
 	Common = 0,
@@ -125,7 +125,7 @@ impl Default for Rarity {
 }
 
 
-#[derive(Eq, PartialEq, Clone, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Eq, PartialEq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(StringLimit))]
 pub struct User<Account,BlockNumber> {
 	owner: Account,
@@ -136,7 +136,7 @@ pub struct User<Account,BlockNumber> {
 }
 
 
-#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct Producer<Account, ProducerId, Balance> {
 	owner: Account,
 	id: ProducerId,
@@ -147,7 +147,7 @@ pub struct Producer<Account, ProducerId, Balance> {
 	bond: Balance,
 }
 
-#[derive(Eq, PartialEq, Clone, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Eq, PartialEq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(StringLimit))]
 pub struct DeviceType<CollectionId, ProducerId, StringLimit: Get<u32>> {
 	class_id: CollectionId,
@@ -159,7 +159,7 @@ pub struct DeviceType<CollectionId, ProducerId, StringLimit: Get<u32>> {
 
 
 
-#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct Device<Class, ProducerId, Instance> {
 	class_id: Class,
 	sport_type: SportType,
@@ -172,7 +172,7 @@ pub struct Device<Class, ProducerId, Instance> {
 	timestamp:u32,
 }
 
-#[derive(Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct DeviceVFE<Class, Instance, Hash,BlockNumber> {
 	class_id: Class,
 	instance_id: Instance,
@@ -188,7 +188,7 @@ pub struct DeviceVFE<Class, Instance, Hash,BlockNumber> {
 	last_block:BlockNumber,
 }
 
-#[derive(Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Item<Class, Instance> {
 	class_id: Class,
 	instance_id: Instance,
@@ -211,7 +211,7 @@ pub mod pallet {
 		type RoleOrigin: EnsureOrigin<Self::Origin, Success=Self::AccountId>;
 
 		/// ProducerId
-		type ProducerId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + HasCompact;
+		type ProducerId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 
 		/// Multiple asset types
 		type Currencies: MultiAssets<Self::AccountId>
@@ -684,7 +684,7 @@ pub mod pallet {
 		/// - class_id CollectionId
 		/// - meta_data Vec<u8>
 		#[pallet::weight(< T as pallet_uniques::Config < T::UniquesInstance >>::WeightInfo::create()
-		+ < T as pallet_uniques::Config < T::UniquesInstance >>::WeightInfo::set_class_metadata())]
+		+ < T as pallet_uniques::Config < T::UniquesInstance >>::WeightInfo::set_collection_metadata())]
 		#[transactional]
 		pub fn device_type_create(
 			origin: OriginFor<T>,
@@ -700,8 +700,8 @@ pub mod pallet {
 			let class = T::UniqueId::generate_class_id()?;
 			// let meta_data = meta_data.unwrap_or(Default::default());
 
-			pallet_uniques::Pallet::<T, T::UniquesInstance>::create_class(&class, &who, &who)?;
-			pallet_uniques::Pallet::<T, T::UniquesInstance>::set_class_metadata(
+			pallet_uniques::Pallet::<T, T::UniquesInstance>::create_collection(&class, &who, &who)?;
+			pallet_uniques::Pallet::<T, T::UniquesInstance>::set_collection_metadata(
 				origin.clone(),
 				class.clone(),
 				meta_data.clone(),
@@ -747,7 +747,7 @@ pub mod pallet {
 
 			let device_type = DeviceTypes::<T>::get(class.clone()).ok_or(Error::<T>::DeviceTypeNotExist)?;
 
-			let class_owner = Self::class_owner(&class).ok_or(Error::<T>::ClassNotFound)?;
+			let class_owner = Self::collection_owner(&class).ok_or(Error::<T>::ClassNotFound)?;
 			ensure!(admin == class_owner, Error::<T>::OperationIsNotAllowed);
 
 			PublicKeys::<T>::insert(puk, 1u8);
@@ -907,8 +907,8 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet_uniques::Config<T::UniquesInstance>>::WeightInfo::transfer())]
 		pub fn power_recovery(
 			origin: OriginFor<T>,
-			#[pallet::compact] class: T::CollectionId,
-			#[pallet::compact] instance: T::ItemId,
+			class: T::CollectionId,
+			instance: T::ItemId,
 		) -> DispatchResult {
 
 			let from = ensure_signed(origin.clone())?;
@@ -966,8 +966,8 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet_uniques::Config<T::UniquesInstance>>::WeightInfo::transfer())]
 		pub fn transfer(
 			origin: OriginFor<T>,
-			#[pallet::compact] class: T::CollectionId,
-			#[pallet::compact] instance: T::ItemId,
+			class: T::CollectionId,
+			instance: T::ItemId,
 			dest: <T::Lookup as StaticLookup>::Source,
 		) -> DispatchResult {
 			let from = ensure_signed(origin.clone())?;
@@ -1089,7 +1089,7 @@ impl<T: Config> Pallet<T> {
 
 	pub fn do_burn(class_id: T::CollectionId, instance_id: T::ItemId) -> DispatchResult {
 		let owner = Self::owner(&class_id, &instance_id).ok_or(Error::<T>::InstanceNotFound)?;
-		pallet_uniques::Pallet::<T, T::UniquesInstance>::burn_from(&class_id, &instance_id)?;
+		<pallet_uniques::Pallet::<T, T::UniquesInstance> as Mutate<T::AccountId>>::burn(&class_id, &instance_id, None)?;
 		Self::deposit_event(Event::Burned(class_id, instance_id, owner));
 		Ok(())
 	}
@@ -1097,7 +1097,7 @@ impl<T: Config> Pallet<T> {
 
 	/// The account ID of the Producer.
 	pub fn into_account_id(id: T::ProducerId) -> T::AccountId {
-		T::PalletId::get().into_sub_account(id)
+		T::PalletId::get().into_sub_account_truncating(id)
 	}
 
 

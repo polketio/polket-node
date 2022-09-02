@@ -13,7 +13,7 @@ impl<
 		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
 		Identity: IdentitySupport<AccountId>,
 		Role: RoleValue,
-		AccountId: Default,
+		AccountId,
 	> EnsureOrigin<O> for EnsureIdentity<AccountId, Role, Identity>
 {
 	type Success = AccountId;
@@ -24,8 +24,8 @@ impl<
 		})
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn successful_origin() -> O {
-		O::from(RawOrigin::Signed(Default::default()))
-	}
+	// #[cfg(feature = "runtime-benchmarks")]
+	// fn successful_origin() -> O {
+	// 	O::from(RawOrigin::Signed(Default::default()))
+	// }
 }

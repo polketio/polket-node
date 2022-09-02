@@ -2,7 +2,7 @@
 // Copyright (C) 2021-2022 Polket.
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
 use sp_std::{fmt, prelude::*};
@@ -36,7 +36,7 @@ impl fmt::Display for IdentityExtraField {
 	}
 }
 
-#[derive(Clone, Eq, PartialEq, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum IdentityRole {
 	None,
 	Producer,

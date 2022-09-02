@@ -10,14 +10,14 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 	type ItemId = T::ItemId;
 	type CollectionId = T::CollectionId;
 
-	fn owner(class: &Self::CollectionId, instance: &Self::ItemId) -> Option<T::AccountId> {
+	fn owner(collection: &Self::CollectionId, instance: &Self::ItemId) -> Option<T::AccountId> {
 		<pallet_uniques::Pallet<T, T::UniquesInstance> as Inspect<T::AccountId>>::owner(
-			class, instance,
+			collection, instance,
 		)
 	}
 
-	fn class_owner(class: &Self::CollectionId) -> Option<T::AccountId> {
-		pallet_uniques::Pallet::<T, T::UniquesInstance>::class_owner(class)
+	fn collection_owner(collection: &Self::CollectionId) -> Option<T::AccountId> {
+		<pallet_uniques::Pallet::<T, T::UniquesInstance> as Inspect<T::AccountId>>::collection_owner(collection)
 	}
 
 	fn attribute(
@@ -28,8 +28,8 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 		pallet_uniques::Pallet::<T, T::UniquesInstance>::attribute(class, instance, key)
 	}
 
-	fn class_attribute(class: &Self::CollectionId, key: &[u8]) -> Option<Vec<u8>> {
-		pallet_uniques::Pallet::<T, T::UniquesInstance>::class_attribute(class, key)
+	fn collection_attribute(collection: &Self::CollectionId, key: &[u8]) -> Option<Vec<u8>> {
+		pallet_uniques::Pallet::<T, T::UniquesInstance>::collection_attribute(collection, key)
 	}
 
 	fn can_transfer(class: &Self::CollectionId, instance: &Self::ItemId) -> bool {
@@ -46,8 +46,8 @@ impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 		Self::do_mint(class.clone(), instance.clone(), who.clone())
 	}
 
-	fn burn_from(class: &Self::CollectionId, instance: &Self::ItemId) -> DispatchResult {
-		Self::do_burn(class.clone(), instance.clone())
+	fn burn(collection: &Self::CollectionId, instance: &Self::ItemId, maybe_check_owner: Option<&T::AccountId>) -> DispatchResult {
+		Self::do_burn(collection.clone(), instance.clone())
 	}
 }
 
@@ -55,15 +55,15 @@ impl<T: Config> InspectEnumerable<T::AccountId> for Pallet<T> {
 	/// Returns an iterator of the asset classes in existence.
 	///
 	/// NOTE: iterating this list invokes a storage read per item.
-	fn classes() -> Box<dyn Iterator<Item = Self::CollectionId>> {
-		pallet_uniques::Pallet::<T, T::UniquesInstance>::classes()
+	fn collections() -> Box<dyn Iterator<Item = Self::CollectionId>> {
+		pallet_uniques::Pallet::<T, T::UniquesInstance>::collections()
 	}
 
 	/// Returns an iterator of the instances of an asset `class` in existence.
 	///
 	/// NOTE: iterating this list invokes a storage read per item.
-	fn instances(class: &Self::CollectionId) -> Box<dyn Iterator<Item = Self::ItemId>> {
-		pallet_uniques::Pallet::<T, T::UniquesInstance>::instances(class)
+	fn items(class: &Self::CollectionId) -> Box<dyn Iterator<Item = Self::ItemId>> {
+		pallet_uniques::Pallet::<T, T::UniquesInstance>::items(class)
 	}
 
 	/// Returns an iterator of the asset instances of all classes owned by `who`.
@@ -76,10 +76,10 @@ impl<T: Config> InspectEnumerable<T::AccountId> for Pallet<T> {
 	/// Returns an iterator of the asset instances of `class` owned by `who`.
 	///
 	/// NOTE: iterating this list invokes a storage read per item.
-	fn owned_in_class(
+	fn owned_in_collection(
 		class: &Self::CollectionId,
 		who: &T::AccountId,
 	) -> Box<dyn Iterator<Item = Self::ItemId>> {
-		pallet_uniques::Pallet::<T, T::UniquesInstance>::owned_in_class(class, who)
+		pallet_uniques::Pallet::<T, T::UniquesInstance>::owned_in_collection(class, who)
 	}
 }

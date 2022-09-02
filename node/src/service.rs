@@ -1,7 +1,7 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use polket_runtime::{self, opaque::Block, RuntimeApi};
-use sc_client_api::ExecutorProvider;
+use sc_client_api::{BlockBackend, ExecutorProvider};
 // use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::{FinalityProofProvider, SharedVoterState};
@@ -43,7 +43,10 @@ pub fn new_partial(
 		sc_consensus::DefaultImportQueue<Block, FullClient>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
-			impl sc_service::RpcExtensionBuilder,
+			impl Fn(
+				node_rpc::DenyUnsafe,
+				sc_rpc::SubscriptionTaskExecutor,
+			) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>,
 			(
 				sc_consensus_babe::BabeBlockImport<
 					Block,
@@ -58,7 +61,6 @@ pub fn new_partial(
 				sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 				sc_consensus_babe::BabeLink<Block>,
 			),
-			std::time::Duration, // slot-duration
 			Option<Telemetry>,
 		),
 	>,
@@ -131,7 +133,7 @@ pub fn new_partial(
 			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 			let slot =
-				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_duration(
+				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 					*timestamp,
 					slot_duration,
 				);
@@ -153,7 +155,6 @@ pub fn new_partial(
 	let import_setup = (block_import.clone(), grandpa_link, babe_link.clone());
 
 	let shared_epoch_changes = babe_link.epoch_changes().clone();
-	let slot_duration = babe_config.slot_duration();
 
 	let rpc_extensions_builder = {
 		let client = client.clone();
@@ -164,7 +165,7 @@ pub fn new_partial(
 
 		move |deny_unsafe,
 		      subscription_executor: rpc::SubscriptionTaskExecutor|
-		      -> Result<rpc::RpcExtension, sc_service::Error> {
+		      -> Result<jsonrpsee::RpcModule<()>, sc_service::Error> {
 			let deps = rpc::FullDeps {
 				client: client.clone(),
 				pool: transaction_pool.clone(),
@@ -197,7 +198,7 @@ pub fn new_partial(
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (rpc_extensions_builder, import_setup, slot_duration, telemetry),
+		other: (rpc_extensions_builder, import_setup, telemetry),
 	})
 }
 
@@ -218,7 +219,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		mut keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (rpc_extensions_builder, import_setup, slot_duration, mut telemetry),
+		other: (rpc_extensions_builder, import_setup, mut telemetry),
 	} = new_partial(&config)?;
 
 	if let Some(url) = &config.keystore_remote {
@@ -234,7 +235,12 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 
 	let (block_import, grandpa_link, babe_link) = import_setup;
 
-	config.network.extra_sets.push(sc_finality_grandpa::grandpa_peers_set_config());
+	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
+		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
+		&config.chain_spec,
+	);
+
+	config.network.extra_sets.push(sc_finality_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone()));
 	let warp_sync = Arc::new(sc_finality_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
 		grandpa_link.shared_authority_set().clone(),
@@ -269,15 +275,15 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let prometheus_registry = config.prometheus_registry().cloned();
 
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-		network: network.clone(),
+		config,
+		backend,
 		client: client.clone(),
 		keystore: keystore_container.sync_keystore(),
-		task_manager: &mut task_manager,
+		network: network.clone(),
+		rpc_builder: Box::new(rpc_extensions_builder),
 		transaction_pool: transaction_pool.clone(),
-		rpc_extensions_builder: Box::new(rpc_extensions_builder),
-		backend,
+		task_manager: &mut task_manager,
 		system_rpc_tx,
-		config,
 		telemetry: telemetry.as_mut(),
 	})?;
 
@@ -292,7 +298,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 
 		let can_author_with =
 			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
-
+		let slot_duration = babe_link.config().slot_duration();
 		let babe_config = sc_consensus_babe::BabeParams {
 			keystore: keystore_container.sync_keystore(),
 			client: client.clone(),
@@ -305,7 +311,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 				let slot =
-					sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_duration(
+					sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 						*timestamp,
 						slot_duration,
 					);
@@ -339,6 +345,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		keystore,
 		local_role: role,
 		telemetry: telemetry.as_ref().map(|x| x.handle()),
+		protocol_name: grandpa_protocol_name,
 	};
 
 	if enable_grandpa {

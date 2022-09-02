@@ -18,6 +18,7 @@ use sp_runtime::{
 	FixedPointNumber, FixedU128,
 };
 use pallet_support::fungibles::AssetFronze;
+// use codec::{MaxEncodedLen};
 
 mod impl_fungibles;
 

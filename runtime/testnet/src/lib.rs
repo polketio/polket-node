@@ -7,9 +7,9 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::Encode;
-use frame_election_provider_support::onchain;
+use frame_election_provider_support::{onchain, SequentialPhragmen};
 use frame_support::PalletId;
-use frame_system::{EnsureRoot};
+use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -18,7 +18,6 @@ use runtime_common::{origin::EnsureIdentity, CouponsInstance, CurrencyToVote};
 use sp_api::impl_runtime_apis;
 use sp_core::{
 	crypto::KeyTypeId,
-	u32_trait::{_1, _2},
 	OpaqueMetadata,
 };
 use sp_runtime::{
@@ -43,7 +42,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, log, ord_parameter_types, parameter_types,
-	traits::{EnsureOneOf, KeyOwnerProofSystem, Randomness, StorageInfo, ConstU128, ConstU32},
+	traits::{AsEnsureOriginWithArg, EnsureOneOf, KeyOwnerProofSystem, Randomness, StorageInfo, ConstU128, ConstU32},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, Weight,
@@ -314,9 +313,10 @@ impl pallet_uniques::Config for Runtime {
 	type CollectionId = CollectionId;
 	type ItemId = ItemId;
 	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type ClassDeposit = ClassDeposit;
-	type InstanceDeposit = InstanceDeposit;
+	type CollectionDeposit = ClassDeposit;
+	type ItemDeposit = InstanceDeposit;
 	type MetadataDepositBase = MetadataDepositBase;
 	type AttributeDepositBase = AttributeDepositBase;
 	type DepositPerByte = MetadataDepositPerByte;
@@ -324,6 +324,7 @@ impl pallet_uniques::Config for Runtime {
 	type KeyLimit = KeyLimit;
 	type ValueLimit = ValueLimit;
 	type WeightInfo = ();
+	type Locker = ();
 }
 
 
@@ -332,9 +333,10 @@ impl pallet_uniques::Config<CouponsInstance> for Runtime {
 	type CollectionId = CollectionId;
 	type ItemId = ItemId;
 	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type ClassDeposit = ClassDeposit;
-	type InstanceDeposit = InstanceDeposit;
+	type CollectionDeposit = ClassDeposit;
+	type ItemDeposit = InstanceDeposit;
 	type MetadataDepositBase = MetadataDepositBase;
 	type AttributeDepositBase = AttributeDepositBase;
 	type DepositPerByte = MetadataDepositPerByte;
@@ -342,6 +344,7 @@ impl pallet_uniques::Config<CouponsInstance> for Runtime {
 	type KeyLimit = KeyLimit;
 	type ValueLimit = ValueLimit;
 	type WeightInfo = ();
+	type Locker = ();
 }
 
 pub struct TestFreezer;
@@ -388,9 +391,10 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
+	type Event = Event;
 	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
-	type TransactionByteFee = TransactionByteFee;
-	type WeightToFee = FixTransactionFee;
+	type WeightToFee = IdentityFee<Balance>;
+	type LengthToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
@@ -418,8 +422,10 @@ impl pallet_session::historical::Config for Runtime {
 }
 
 impl onchain::Config for Runtime {
-	type Accuracy = Perbill;
+		type System = Runtime;
+	type Solver = SequentialPhragmen<AccountId, Perbill>;
 	type DataProvider = Staking;
+	type WeightInfo = ();
 }
 
 // TODO #6469: This shouldn't be static, but a lazily cached value, not built unless needed, and
@@ -440,10 +446,10 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
 	// Six sessions in an era (24 hours).
-	pub const SessionsPerEra: SessionIndex = 6;
+	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
 	// 28 eras for unbonding (28 days).
-	pub const BondingDuration: pallet_staking::EraIndex = 28;
-	pub const SlashDeferDuration: pallet_staking::EraIndex = 27;
+	pub const BondingDuration: sp_staking::EraIndex = 28;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 27;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -456,8 +462,9 @@ impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 }
 
 impl pallet_staking::Config for Runtime {
-	const MAX_NOMINATIONS: u32 = 16;
+	type MaxNominations = ConstU32<16>;
 	type Currency = Balances;
+	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = CurrencyToVote;
 	type RewardRemainder = ();
@@ -474,12 +481,13 @@ impl pallet_staking::Config for Runtime {
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
-	type ElectionProvider = onchain::OnChainSequentialPhragmen<Self>;
+	type ElectionProvider = onchain::UnboundedExecution<Runtime>;
 	type GenesisElectionProvider = Self::ElectionProvider;
-	// Use the nominators map to iter voters, but also keep bags-list up-to-date.
-	type SortedListProvider = pallet_staking::UseNominatorsMap<Runtime>;
-	type WeightInfo = ();
+	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
+	type MaxUnlockingChunks = ConstU32<32>;
+	type OnStakerSlash = ();
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
+	type WeightInfo = ();
 }
 
 
@@ -513,7 +521,7 @@ impl pallet_currencies::Config for Runtime {
 
 type MoreThanHalfCouncil = EnsureOneOf<
 	EnsureRoot<AccountId>,
-	pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>,
+	pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
 >;
 
 parameter_types! {
@@ -594,12 +602,14 @@ impl pallet_treasury::Config for Runtime {
 	type OnSlash = Treasury;
 	type ProposalBond = ProposalBond;
 	type ProposalBondMinimum = ProposalBondMinimum;
+	type ProposalBondMaximum = ();
 	type SpendPeriod = SpendPeriod;
 	type Burn = ();
 	type BurnDestination = ();
 	type SpendFunds = ();
 	type MaxApprovals = MaxApprovals;
 	type WeightInfo = ();
+	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<Balance>;
 }
 
 parameter_types! {
@@ -682,7 +692,7 @@ construct_runtime!(
 		Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
 		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
+		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Historical: session_historical::{Pallet},
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
