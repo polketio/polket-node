@@ -39,6 +39,7 @@ impl fmt::Display for IdentityExtraField {
 #[derive(Clone, Eq, PartialEq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum IdentityRole {
 	None,
+	Brand,
 	Producer,
 	Exchange,
 	Audit,

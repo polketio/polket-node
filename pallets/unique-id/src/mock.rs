@@ -56,12 +56,15 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_unique_id::Config for Test {
 	type CollectionId = u32;
 	type ItemId = u32;
 	type AssetId = u32;
+	type NormalId = u32;
+	type ObjectId = u32;
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {

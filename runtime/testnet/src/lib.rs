@@ -654,9 +654,8 @@ parameter_types! {
 
 impl pallet_vfe::Config for Runtime {
 	type Event = Event;
-	type CreateOrigin = frame_system::EnsureRoot<AccountId>;
-	type RoleOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
-	type ProducerId = u32;
+	type BrandOrigin = frame_system::EnsureRoot<AccountId>;
+	type ProducerOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
 	type Currencies = Currencies;
 	type PalletId = SportPalletId;
 	type UniqueId = UniqueId;

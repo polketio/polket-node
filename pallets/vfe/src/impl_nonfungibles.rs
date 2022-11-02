@@ -37,17 +37,22 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
+impl<T: Config> Mutate<T::AccountId> for Pallet<T>
+	where
+		T::CollectionId: From<T::ObjectId>,
+		T::ItemId: From<T::ObjectId>,
+		T::ObjectId: From<T::CollectionId>,
+{
 	fn mint_into(
 		class: &Self::CollectionId,
 		instance: &Self::ItemId,
 		who: &T::AccountId,
 	) -> DispatchResult {
-		Self::do_mint(class.clone(), instance.clone(), who.clone())
+		Self::do_mint(class.to_owned(), instance.to_owned(), who.to_owned())
 	}
 
 	fn burn(collection: &Self::CollectionId, instance: &Self::ItemId, maybe_check_owner: Option<&T::AccountId>) -> DispatchResult {
-		Self::do_burn(collection.clone(), instance.clone())
+		Self::do_burn(collection.to_owned(), instance.to_owned())
 	}
 }
 
@@ -55,21 +60,21 @@ impl<T: Config> InspectEnumerable<T::AccountId> for Pallet<T> {
 	/// Returns an iterator of the asset classes in existence.
 	///
 	/// NOTE: iterating this list invokes a storage read per item.
-	fn collections() -> Box<dyn Iterator<Item = Self::CollectionId>> {
+	fn collections() -> Box<dyn Iterator<Item=Self::CollectionId>> {
 		pallet_uniques::Pallet::<T, T::UniquesInstance>::collections()
 	}
 
 	/// Returns an iterator of the instances of an asset `class` in existence.
 	///
 	/// NOTE: iterating this list invokes a storage read per item.
-	fn items(class: &Self::CollectionId) -> Box<dyn Iterator<Item = Self::ItemId>> {
+	fn items(class: &Self::CollectionId) -> Box<dyn Iterator<Item=Self::ItemId>> {
 		pallet_uniques::Pallet::<T, T::UniquesInstance>::items(class)
 	}
 
 	/// Returns an iterator of the asset instances of all classes owned by `who`.
 	///
 	/// NOTE: iterating this list invokes a storage read per item.
-	fn owned(who: &T::AccountId) -> Box<dyn Iterator<Item = (Self::CollectionId, Self::ItemId)>> {
+	fn owned(who: &T::AccountId) -> Box<dyn Iterator<Item=(Self::CollectionId, Self::ItemId)>> {
 		pallet_uniques::Pallet::<T, T::UniquesInstance>::owned(who)
 	}
 
@@ -79,7 +84,7 @@ impl<T: Config> InspectEnumerable<T::AccountId> for Pallet<T> {
 	fn owned_in_collection(
 		class: &Self::CollectionId,
 		who: &T::AccountId,
-	) -> Box<dyn Iterator<Item = Self::ItemId>> {
+	) -> Box<dyn Iterator<Item=Self::ItemId>> {
 		pallet_uniques::Pallet::<T, T::UniquesInstance>::owned_in_collection(class, who)
 	}
 }
