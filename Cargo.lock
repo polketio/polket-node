@@ -4573,6 +4573,7 @@ dependencies = [
  "pallet-unique-id",
  "pallet-uniques",
  "parity-scale-codec 3.1.5",
+ "rand_core 0.6.3",
  "rust_decimal",
  "rust_decimal_macros",
  "scale-info",

@@ -9,11 +9,20 @@ use sp_std::convert::TryInto;
 use std::convert::TryInto as TryInto2;
 use frame_support::weights::Pays::No;
 use hex_literal::hex;
+use rand_core::OsRng;
 
 macro_rules! bvec {
 	($( $x:tt )*) => {
 		vec![$( $x )*].try_into().unwrap()
 	}
+}
+
+fn generate_device_keypair() -> (SigningKey, PublicKey<NistP256>) {
+	let signing_key = SigningKey::random(&mut OsRng);
+	let verifying_key = signing_key.verifying_key(); // Serialize with `::to_encoded_point()`
+	let public_key: PublicKey<NistP256> = verifying_key.into();
+	// let encoded_point = publickey.to_encoded_point(true);
+	return (signing_key, public_key);
 }
 
 
@@ -266,41 +275,54 @@ fn register_device_should_work() {
 }
 
 
-// #[test]
-// fn bind_device_should_work() {
-// 	new_test_ext().execute_with(|| {
-//
-// 		assert_ok!(Sport::producer_register(Origin::signed(ALICE)));
-//
-// 		assert_ok!(Sport::device_type_create(Origin::signed(ALICE),bvec![0u8; 20],0,SportType::SkippingRope));
-//
-// 		let hash = hex::decode("02721aacc27b73f67f417856f183e83986f7dee7a1a16ce39b202ba988c890b1d2").unwrap();
-// 		let puk:[u8;33] = hash[0..33].try_into().expect("error length");
-//
-// 		assert_ok!(Sport::register_device(Origin::signed(ALICE),puk,0,0));
-// 		System::assert_has_event(Event::Sport(crate::Event::DeviceRegistered(ALICE, puk, 0)));
-//
-// 		let  nonce_account = 1u32.to_be_bytes();
-//
-// 		println!("nonce_account 1 = {:?}", nonce_account);
-//
-// 		// println!("nonce_account = {}", hex::encode(nonce_account));
-//
-// 		let account_rip160 = Ripemd::Hash::hash(ALICE.encode().as_ref());
-//
-// 		println!("account_rip160 = {:?}", account_rip160);
-//
-// 		let x:Vec<u8> = hex::decode("63bb64a3bdffa7f8dc0a6723c56294a97a0012765f4b35b118338ffe36cf6dededcb5b11f8ce279b59dabbe391a1a1975179cb80e10b4197c12399df00b8de5e").unwrap();
-//
-// 		assert_ok!(Sport::bind_device(Origin::signed(ALICE),puk,x.try_into().unwrap(),1,None));
-//
-// 		// System::assert_has_event(Event::Sport(crate::Event::UnBindDevice(ALICE, puk, 0,0)));
-//
-// 	});
-// }
-//
-//
-//
+#[test]
+fn bind_device_should_work() {
+	new_test_ext().execute_with(|| {
+
+		// device keypair
+		let bytes = hex::decode("0339d3e6e837d675ce77e85d708caf89ddcdbf53c8e510775c9cb9ec06282475a0").unwrap();
+		let puk: [u8; 33] = bytes.try_into().expect("error length");
+
+
+		// register producer
+		assert_ok!(VFE::producer_register(Origin::signed(ALICE)));
+		// create vfe brand
+		assert_ok!(VFE::create_vfe_brand(Origin::signed(CANDY), bvec![0u8; 20], SportType::JumpRope, VFERarity::Common));
+		assert_ok!(VFE::approve_mint(Origin::signed(CANDY), 1, 1, 10, Some((0,10))));
+		// register device
+		assert_ok!(VFE::register_device(Origin::signed(ALICE), puk, 1, 1));
+		let producer_balance = <Assets as MultiAssets<AccountId>>::balance(0, &crate::Pallet::<Test>::into_account_id(1));
+		println!("producer_balance: {}", producer_balance);
+		assert_eq!(producer_balance, 10);
+
+		let user = Dany;
+		let account_nonce = 123u32;
+		let account_rip160 = Ripemd::Hash::hash(user.encode().as_ref());
+		println!("account_nonce = {}", hex::encode(account_nonce.to_le_bytes()));
+		println!("account_hex = {:?}", hex::encode(user.encode()));
+		println!("account_rip160 = {:?}", account_rip160);
+
+		let signature = hex::decode("df6e11efe387bec44bc15c3c636dfa51a951a1cda1a96d1d1b32566de948cda6125e873bac098688b4991512ca1dfa68a26862c97b81ad0555a06f1423874d66").unwrap();
+
+		assert_ok!(VFE::bind_device(
+			Origin::signed(user.clone()),
+			puk,
+			signature.try_into().unwrap(),
+			account_nonce,
+			None
+		));
+		System::assert_has_event(Event::VFE(crate::Event::DeviceBound(user, puk, 1, 1)));
+
+		let vfe = VFEDetails::<Test>::get(1, 1).expect("VFEDetail not exist");
+		assert_eq!(vfe.level, 0);
+		println!("vfe.base.efficiency: {}", vfe.base_ability.efficiency);
+		println!("vfe.base.skill: {}", vfe.base_ability.skill);
+		println!("vfe.base.luck: {}", vfe.base_ability.luck);
+		println!("vfe.base.durable: {}", vfe.base_ability.durable);
+	});
+}
+
+
 // #[test]
 // fn sport_upload_should_work() {
 // 	new_test_ext().execute_with(|| {

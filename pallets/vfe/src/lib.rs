@@ -260,8 +260,8 @@ pub mod pallet {
 		/// deregister device. \[operator, public_key\]
 		DeviceDeregistered(T::AccountId, [u8; 33]),
 
-		/// Create VFEDetail. \[owner, VFE_detail\]
-		VFEDetailCreated(T::AccountId, VFEDetail<T::CollectionId, T::ItemId, T::Hash, T::BlockNumber>),
+		/// Create VFE. \[owner, VFE_detail\]
+		VFECreated(T::AccountId, VFEDetail<T::CollectionId, T::ItemId, T::Hash, T::BlockNumber>),
 
 		/// Minted Art Toy vfe token. \[class, instance, owner\]
 		Issued(T::CollectionId, T::ItemId, T::AccountId),
@@ -728,13 +728,13 @@ pub mod pallet {
 		pub fn bind_device(
 			origin: OriginFor<T>,
 			puk: [u8; 33],
-			req_sig: BoundedVec<u8, T::StringLimit>,
+			signature: BoundedVec<u8, T::StringLimit>,
 			nonce: u32,
-			ins_opt: Option<T::ItemId>,
+			bind_item: Option<T::ItemId>,
 		) -> DispatchResult {
 			let from = ensure_signed(origin.clone())?;
 			//  bind device signature
-			let mut device = Self::check_device_pub(from.clone(), puk, req_sig, nonce)?;
+			let mut device = Self::check_device_pub(from.clone(), puk, signature, nonce)?;
 
 			// create the user if it is new
 			Self::create_new_user(from.clone());
@@ -761,7 +761,7 @@ pub mod pallet {
 			} else {
 				ensure!(device.item_id.is_none(), Error::<T>::DeviceHasBeenBond);
 
-				let instance = ins_opt.ok_or(Error::<T>::NoneValue)?;
+				let instance = bind_item.ok_or(Error::<T>::NoneValue)?;
 
 				device.item_id = Some(instance);
 				Devices::<T>::insert(puk.clone(), device);
@@ -796,14 +796,14 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// sport_upload update the data to the chain
+		/// upload training report to the chain
 		///  - origin AccountId
 		/// - puk BoundedVec<u8, T::StringLimit>
 		/// - req_sig BoundedVec<u8, T::StringLimit>
 		/// - msg AccountId BoundedVec<u8, T::StringLimit>
 		#[pallet::weight(10_000)]
 		#[transactional]
-		pub fn sport_upload(
+		pub fn upload_training_report(
 			origin: OriginFor<T>,
 			device_pk: [u8; 33],
 			report_sig: BoundedVec<u8, T::StringLimit>,
@@ -1175,7 +1175,7 @@ impl<T: Config> Pallet<T>
 	fn check_device_pub(
 		account: T::AccountId,
 		puk: [u8; 33],
-		req_sig: BoundedVec<u8, T::StringLimit>,
+		signature: BoundedVec<u8, T::StringLimit>,
 		nonce: u32,
 	) -> Result<Device<T::CollectionId, T::ItemId, T::ObjectId, AssetIdOf<T>, BalanceOf<T>>, sp_runtime::DispatchError> {
 		// get the producer owner
@@ -1185,18 +1185,19 @@ impl<T: Config> Pallet<T>
 		let verify_key =
 			VerifyingKey::from_sec1_bytes(pk).map_err(|_| Error::<T>::PublicKeyEncodeError)?;
 
-		let target = &req_sig[..];
+		let target = &signature[..];
 
 		let sig = Signature::from_bytes(target).map_err(|_| Error::<T>::SigEncodeError)?;
 
-		let mut nonce_account = nonce.clone().to_be_bytes().to_vec();
-
+		let account_nonce = nonce.to_le_bytes().to_vec();
 		let account_rip160 = Ripemd::Hash::hash(account.encode().as_ref());
 
-		nonce_account.append(&mut account_rip160.to_vec());
+		let mut msg: Vec<u8> = Vec::new();
+		msg.extend(account_nonce);
+		msg.extend(account_rip160.to_vec());
 
 		// check the validity of the signature
-		let flag = verify_key.verify(&nonce_account, &sig).is_ok();
+		let flag = verify_key.verify(&msg, &sig).is_ok();
 
 		ensure!(flag, Error::<T>::OperationIsNotAllowedForSign);
 
@@ -1435,7 +1436,7 @@ impl<T: Config> Pallet<T>
 		// save vfe detail
 		VFEDetails::<T>::insert(&class_id, &item_id, vfe.clone());
 
-		Self::deposit_event(Event::VFEDetailCreated(owner.to_owned(), vfe));
+		Self::deposit_event(Event::VFECreated(owner.to_owned(), vfe));
 
 		Ok(item_id)
 	}
@@ -1527,7 +1528,7 @@ impl<T: Config> Pallet<T>
 						&Self::into_account_id(producer_id.to_owned()),
 						&vfe_brand_owner,
 						mint_price,
-						true,
+						false,
 					)?;
 
 					let locked_of_mint = approved

@@ -229,8 +229,8 @@ parameter_types! {
 parameter_types! {
 	pub const MaxGenerateRandom: u32 = 1000000;
 	pub const VFEPalletId: PalletId = PalletId(*b"poc/acas");
-	pub const ProducerId :u16 = 1;
-	pub const VFEBrandId :u16 = 2;
+	pub const ProducerId: u32 = 100000;
+	pub const VFEBrandId: u32 = 200000;
 	pub const NativeToken: u32 = 0;
 	pub const IncentiveToken: u32 = 0;
 	pub const UnbindFee:u32 = 1;
