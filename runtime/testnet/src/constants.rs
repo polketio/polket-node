@@ -20,7 +20,7 @@ pub mod currency {
 pub mod time {
 	use polket_primitives::{BlockNumber, Moment};
 	// mainnet
-	pub const MILLISECS_PER_BLOCK: Moment = 2000;
+	pub const MILLISECS_PER_BLOCK: Moment = 6000;
 	// Testnet
 	//	pub const MILLISECS_PER_BLOCK: Moment = 1000;
 	pub const SLOT_DURATION: Moment = MILLISECS_PER_BLOCK;
@@ -67,4 +67,13 @@ pub mod fee {
 		// 	10 * super::currency::MICROCENTS
 		// }
 	}
+}
+
+pub mod id {
+	use polket_primitives::ObjectId;
+
+	pub const ProducerId: ObjectId = ObjectId::MAX - 1;
+	pub const VFEBrandId: ObjectId = ObjectId::MAX - 2;
+	pub const AssetId: ObjectId = ObjectId::MAX - 3;
+
 }

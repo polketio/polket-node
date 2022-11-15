@@ -213,25 +213,20 @@ impl pallet_uniques::Config<Instance> for Test {
 }
 
 impl pallet_unique_id::Config for Test {
-	type CollectionId = u32;
-	type ItemId = u32;
-	type AssetId = u32;
-	type NormalId = u32;
-	type ObjectId = u32;
+	type ObjectId = ObjectId;
+	type StartId = ConstU32<1u32>;
+	type MaxId = ConstU32<100u32>;
 }
 
 parameter_types! {
 	pub const PickUpRealRequestPeriod: u64 = 500;
 }
 
-
-
 parameter_types! {
 	pub const MaxGenerateRandom: u32 = 1000000;
 	pub const VFEPalletId: PalletId = PalletId(*b"poc/acas");
 	pub const ProducerId: u32 = 100000;
 	pub const VFEBrandId: u32 = 200000;
-	pub const NativeToken: u32 = 0;
 	pub const IncentiveToken: u32 = 0;
 	pub const UnbindFee:u32 = 1;
 	pub const CostUnit: u64 = 100000;
@@ -239,8 +234,7 @@ parameter_types! {
 	pub const LevelUpCostFactor: u64 = 7;
 }
 
-
-impl pallet_vfe::Config for Test {
+impl Config for Test {
 	type Event = Event;
 	type BrandOrigin = EnsureBrand<Self::AccountId>;
 	type ProducerOrigin = EnsureProducer<Self::AccountId>;
@@ -253,8 +247,6 @@ impl pallet_vfe::Config for Test {
 	type UniquesInstance = Instance;
 	type Randomness = TestRandomness<Self>;
 	type MaxGenerateRandom = MaxGenerateRandom;
-	type IncentiveToken = IncentiveToken;
-	type NativeToken = NativeToken;
 	type UnbindFee = UnbindFee;
 	type CostUnit = CostUnit;
 	type EnergyRecoveryDuration = EnergyRecoveryDuration;

@@ -80,17 +80,8 @@ pub type DigestItem = generic::DigestItem;
 /// Opaque, encoded, unchecked extrinsic.
 pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
-/// Asset ID for generic asset module.
-pub type AssetId = u64;
-
-/// NormalId ID for all module.
-pub type NormalId = u64;
-
-/// NFT class id for uniques
-pub type CollectionId = u64;
-
-/// NFT instance id for uniques
-pub type ItemId = u64;
+/// This is an auto-incrementing ID used to record data
+pub type ObjectId = u64;
 
 /// 4 length of byte
 pub type Byte4 = [u8; 4];

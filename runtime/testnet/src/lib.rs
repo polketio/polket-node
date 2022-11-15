@@ -14,7 +14,7 @@ use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_support::identity::IdentityRoleProducer;
-use runtime_common::{origin::EnsureIdentity, CouponsInstance, CurrencyToVote};
+use runtime_common::{origin::EnsureIdentity, CouponsInstance, CurrencyToVote, VFEInstance};
 use sp_api::impl_runtime_apis;
 use sp_core::{
 	crypto::KeyTypeId,
@@ -42,13 +42,14 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, log, ord_parameter_types, parameter_types,
-	traits::{AsEnsureOriginWithArg, EnsureOneOf, KeyOwnerProofSystem, Randomness, StorageInfo, ConstU128, ConstU32},
+	traits::{AsEnsureOriginWithArg, KeyOwnerProofSystem, Randomness, StorageInfo, ConstU128, ConstU32},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, Weight,
 	},
 	StorageValue,
 };
+use frame_support::traits::{Contains, EitherOfDiverse};
 pub use pallet_assets::Call as AssetsCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_identity::Call as IdentityCall;
@@ -62,13 +63,16 @@ use pallet_transaction_payment::CurrencyAdapter;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
+use sp_runtime::traits::ConstU64;
 
 
 pub use polket_primitives::*;
 
 /// Constant values used within the runtime.
 pub mod constants;
+
 use constants::{currency::DOLLARS, fee::*, time::*};
+use crate::constants::currency::MILLICENTS;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -137,9 +141,29 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
+pub struct BaseCallFilter;
+
+impl Contains<Call> for BaseCallFilter {
+	fn contains(call: &Call) -> bool {
+		if let Call::Assets(assets_method) = call {
+			return match assets_method {
+				pallet_assets::Call::create { .. }
+				| pallet_assets::Call::force_create { .. } => {
+					false
+				}
+				_ => {
+					true
+				}
+			};
+		}
+
+		true
+	}
+}
+
 impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = frame_support::traits::Everything;
+	type BaseCallFilter = BaseCallFilter;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = BlockWeights;
 	/// The maximum length of a block (in bytes).
@@ -208,7 +232,8 @@ impl pallet_babe::Config for Runtime {
 	type ExpectedBlockTime = ExpectedBlockTime;
 	type EpochChangeTrigger = pallet_babe::ExternalTrigger;
 	type DisabledValidators = Session;
-	type KeyOwnerProofSystem = Historical; // Historical;
+	type KeyOwnerProofSystem = Historical;
+	// Historical;
 	type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
 		KeyTypeId,
 		pallet_babe::AuthorityId,
@@ -217,8 +242,9 @@ impl pallet_babe::Config for Runtime {
 		KeyTypeId,
 		pallet_babe::AuthorityId,
 	)>>::IdentificationTuple;
-	type HandleEquivocation = (); //pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, (), ReportLongevity>; // ()
-							  // Offences
+	type HandleEquivocation = ();
+	//pallet_babe::EquivocationHandler<Self::KeyOwnerIdentification, (), ReportLongevity>; // ()
+	// Offences
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
 }
@@ -230,7 +256,7 @@ impl pallet_grandpa::Config for Runtime {
 	type KeyOwnerProofSystem = Historical;
 
 	type KeyOwnerProof =
-		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+	<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 
 	type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
 		KeyTypeId,
@@ -286,7 +312,7 @@ impl pallet_assets::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Event = Event;
 	type Balance = Balance;
-	type AssetId = AssetId;
+	type AssetId = ObjectId;
 	type Currency = Balances;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type AssetDeposit = AssetDeposit;
@@ -308,30 +334,10 @@ parameter_types! {
 	pub const AttributeDepositBase: Balance = 1;
 }
 
-impl pallet_uniques::Config for Runtime {
+impl pallet_uniques::Config<VFEInstance> for Runtime {
 	type Event = Event;
-	type CollectionId = CollectionId;
-	type ItemId = ItemId;
-	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
-	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type CollectionDeposit = ClassDeposit;
-	type ItemDeposit = InstanceDeposit;
-	type MetadataDepositBase = MetadataDepositBase;
-	type AttributeDepositBase = AttributeDepositBase;
-	type DepositPerByte = MetadataDepositPerByte;
-	type StringLimit = StringLimit;
-	type KeyLimit = KeyLimit;
-	type ValueLimit = ValueLimit;
-	type WeightInfo = ();
-	type Locker = ();
-}
-
-
-impl pallet_uniques::Config<CouponsInstance> for Runtime {
-	type Event = Event;
-	type CollectionId = CollectionId;
-	type ItemId = ItemId;
+	type CollectionId = ObjectId;
+	type ItemId = ObjectId;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
@@ -349,12 +355,12 @@ impl pallet_uniques::Config<CouponsInstance> for Runtime {
 
 pub struct TestFreezer;
 
-impl pallet_assets::FrozenBalance<AssetId, AccountId, Balance> for TestFreezer {
-	fn frozen_balance(_asset: AssetId, _who: &AccountId) -> Option<Balance> {
+impl pallet_assets::FrozenBalance<ObjectId, AccountId, Balance> for TestFreezer {
+	fn frozen_balance(_asset: ObjectId, _who: &AccountId) -> Option<Balance> {
 		None
 	}
 
-	fn died(_asset: AssetId, _who: &AccountId) {}
+	fn died(_asset: ObjectId, _who: &AccountId) {}
 }
 
 parameter_types! {
@@ -422,7 +428,7 @@ impl pallet_session::historical::Config for Runtime {
 }
 
 impl onchain::Config for Runtime {
-		type System = Runtime;
+	type System = Runtime;
 	type Solver = SequentialPhragmen<AccountId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
@@ -456,6 +462,7 @@ parameter_types! {
 }
 
 pub struct StakingBenchmarkingConfig;
+
 impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 	type MaxNominators = ConstU32<1000>;
 	type MaxValidators = ConstU32<1000>;
@@ -490,15 +497,15 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = ();
 }
 
-
-
-
+parameter_types! {
+	pub const StartId: ObjectId = 1;
+	pub const MaxId: ObjectId = ObjectId::MAX / 2; //half of u64
+}
 
 impl pallet_unique_id::Config for Runtime {
-	type CollectionId = CollectionId;
-	type ItemId = ItemId;
-	type AssetId = AssetId;
-	type NormalId = NormalId;
+	type ObjectId = ObjectId;
+	type StartId = StartId;
+	type MaxId = MaxId;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -509,17 +516,21 @@ impl pallet_utility::Config for Runtime {
 }
 
 parameter_types! {
-	pub const NativeToken: u32 = 0;
+	pub const NativeToken: u64 = 0;
+	pub const AssetId: ObjectId = constants::id::AssetId;
 }
 
 impl pallet_currencies::Config for Runtime {
 	type Event = Event;
+	type CreateOrigin = EnsureSigned<Self::AccountId>;
 	type NativeToken = NativeToken;
-	type MultiCurrency = AssetsModule;
+	type MultiCurrency = Assets;
 	type NativeCurrency = Balances;
+	type UniqueId = UniqueId;
+	type AssetId = AssetId;
 }
 
-type MoreThanHalfCouncil = EnsureOneOf<
+type MoreThanHalfCouncil = EitherOfDiverse<
 	EnsureRoot<AccountId>,
 	pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
 >;
@@ -531,6 +542,7 @@ parameter_types! {
 }
 
 type CouncilCollective = pallet_collective::Instance1;
+
 impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type Origin = Origin;
 	type Proposal = Call;
@@ -549,6 +561,7 @@ parameter_types! {
 }
 
 type TechnicalCollective = pallet_collective::Instance2;
+
 impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type Origin = Origin;
 	type Proposal = Call;
@@ -633,48 +646,37 @@ impl pallet_multisig::Config for Runtime {
 // }
 
 parameter_types! {
-	pub const MaxGenerateRandom: u32 = 1000000;
-	pub const SportPalletId: PalletId = PalletId(*b"poc/acas");
-	pub const CommonMin :u16 = 1;
-	pub const CommonMax :u16 = 10;
-	pub const EliteMin :u16 = 8;
-	pub const EliteMax :u16 = 20;
-	pub const RareMin :u16 = 18;
-	pub const RareMax :u16 = 30;
-	pub const EpicMin :u16 = 30;
-	pub const EpicMax :u16 = 50;
-	pub const Electric :u16 = 100;
-
-	pub const NativeToken_: u32 = 0;
-	pub const IncentiveToken: u32 = 0;
-	pub const UnbindFee:u32 = 1;
-
+	pub const MaxGenerateRandom: u32 = 10000;
+	pub const VFEPalletId: PalletId = PalletId(*b"poc/acas");
+	pub const ProducerId: ObjectId = constants::id::ProducerId;
+	pub const VFEBrandId: ObjectId = constants::id::VFEBrandId;
+	pub const IncentiveToken: ObjectId = 1;
+	pub const UnbindFee: Balance = MILLICENTS;
+	pub const CostUnit: Balance = DOLLARS / 10;
+	pub const EnergyRecoveryDuration: BlockNumber = HOURS;
+	pub const LevelUpCostFactor: Balance = 7;
 }
 
 
 impl pallet_vfe::Config for Runtime {
 	type Event = Event;
-	type BrandOrigin = frame_system::EnsureRoot<AccountId>;
+	// type BrandOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type BrandOrigin = EnsureSigned<AccountId>;
 	type ProducerOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
+	type ProducerId = ProducerId;
+	type VFEBrandId = VFEBrandId;
+	type ObjectId = ObjectId;
 	type Currencies = Currencies;
-	type PalletId = SportPalletId;
+	type PalletId = VFEPalletId;
 	type UniqueId = UniqueId;
-	type UniquesInstance = CouponsInstance;
+	type UniquesInstance = VFEInstance;
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
-	type Currency = Balances;
 	type MaxGenerateRandom = MaxGenerateRandom;
-	type Electric = Electric;
-	type CommonMin = CommonMin;
-	type CommonMax = CommonMin;
-	type EliteMin = EliteMin;
-	type EliteMax = EliteMax;
-	type RareMin = RareMin;
-	type RareMax = RareMax;
-	type EpicMin = EpicMin;
-	type EpicMax = EpicMax;
 	type IncentiveToken = IncentiveToken;
-	type NativeToken = NativeToken;
 	type UnbindFee = UnbindFee;
+	type CostUnit = CostUnit;
+	type EnergyRecoveryDuration = EnergyRecoveryDuration;
+	type LevelUpCostFactor = LevelUpCostFactor;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -687,7 +689,6 @@ construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Storage},
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		// Aura: pallet_aura::{Pallet, Config<T>},
 		Babe: pallet_babe::{Pallet, Call, Storage, Config, ValidateUnsigned},
 		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
@@ -702,21 +703,20 @@ construct_runtime!(
 		TechnicalMembership: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>},
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
-		AssetsModule: pallet_assets::{Pallet,Call, Storage, Event<T>, Config<T>},
-		Uniques: pallet_uniques::{Pallet, Storage, Event<T>},
+		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
-		CouponsUniques: pallet_uniques::<Instance2>::{Pallet, Storage, Event<T>},
+		VFEUniques: pallet_uniques::<Instance1>::{Pallet, Storage, Event<T>},
 		IdentityExtra: pallet_identity_extra::{Pallet, Call, Storage, Event<T>},
 		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
-		// Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
 		VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>},
+		// Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
-where
-	Call: From<LocalCall>,
+	where
+		Call: From<LocalCall>,
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
 		call: Call,
@@ -761,8 +761,8 @@ impl frame_system::offchain::SigningTypes for Runtime {
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
-where
-	Call: From<C>,
+	where
+		Call: From<C>,
 {
 	type Extrinsic = UncheckedExtrinsic;
 	type OverarchingCall = Call;
@@ -796,7 +796,7 @@ pub type Executive = frame_executive::Executive<
 	Block,
 	frame_system::ChainContext<Runtime>,
 	Runtime,
-	AllPallets,
+	AllPalletsWithSystem,
 >;
 
 impl_runtime_apis! {

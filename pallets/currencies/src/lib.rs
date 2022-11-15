@@ -7,7 +7,7 @@
 use frame_support::{
 	dispatch::DispatchResult,
 	pallet_prelude::*,
-	traits::{fungible, fungibles::{Inspect,Mutate,Transfer},tokens::WithdrawConsequence},
+	traits::{fungible, fungibles::{Inspect, Mutate, Transfer}, tokens::WithdrawConsequence},
 };
 use frame_system::pallet_prelude::*;
 
@@ -18,6 +18,7 @@ use sp_runtime::{
 	FixedPointNumber, FixedU128,
 };
 use pallet_support::fungibles::AssetFronze;
+use sp_std::vec::Vec;
 // use codec::{MaxEncodedLen};
 
 mod impl_fungibles;
@@ -39,7 +40,9 @@ type AssetIdOf<T> = <<T as Config>::MultiCurrency as Inspect<
 
 #[frame_support::pallet]
 pub mod pallet {
-
+	use frame_support::dispatch::RawOrigin;
+	use frame_support::traits::fungibles::Create;
+	use pallet_support::uniqueid::UniqueIdGenerator;
 	use super::*;
 
 	#[pallet::config]
@@ -47,23 +50,34 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
+		/// who can create new asset
+		type CreateOrigin: EnsureOrigin<Self::Origin>;
+
 		/// The native currency id
 		#[pallet::constant]
 		type NativeToken: Get<AssetIdOf<Self>>;
 
 		/// pallet_assets
 		type MultiCurrency: Inspect<Self::AccountId>
-			+ Mutate<Self::AccountId>
-			+ Transfer<Self::AccountId>;
+		+ Mutate<Self::AccountId>
+		+ Transfer<Self::AccountId>
+		+ Create<Self::AccountId>;
 
 		/// native currency
-		type NativeCurrency: fungible::Inspect<Self::AccountId, Balance = BalanceOf<Self>>
-			+ fungible::Mutate<Self::AccountId, Balance = BalanceOf<Self>>
-			+ fungible::Transfer<Self::AccountId, Balance = BalanceOf<Self>>;
+		type NativeCurrency: fungible::Inspect<Self::AccountId, Balance=BalanceOf<Self>>
+		+ fungible::Mutate<Self::AccountId, Balance=BalanceOf<Self>>
+		+ fungible::Transfer<Self::AccountId, Balance=BalanceOf<Self>>;
+
+		/// UniqueId is used to generate new CollectionId or ItemId.
+		type UniqueId: UniqueIdGenerator<ObjectId=AssetIdOf<Self>>;
+
+		/// The asset id
+		#[pallet::constant]
+		type AssetId: Get<AssetIdOf<Self>>;
 	}
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
+	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
@@ -79,7 +93,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Some assets were issued. \[asset_id, owner, total_supply\]
 		Issued(AssetIdOf<T>, T::AccountId, BalanceOf<T>),
@@ -111,6 +125,19 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Issue a new class of fungible assets from a public origin.
+		#[pallet::weight(10_000)]
+		pub fn create(
+			origin: OriginFor<T>,
+			admin: <T::Lookup as StaticLookup>::Source,
+			#[pallet::compact] min_balance: BalanceOf<T>,
+		) -> DispatchResult {
+			T::CreateOrigin::ensure_origin(origin.clone())?;
+			let admin = T::Lookup::lookup(admin)?;
+			let index = T::UniqueId::generate_object_id(T::AssetId::get())?;
+			T::MultiCurrency::create(index, admin, true, min_balance)
+		}
+
 		/// Transfer some balance to another account under `asset_id`.
 		///
 		/// The dispatch origin for this call must be `Signed` by the

@@ -1,3 +1,7 @@
+// This file is part of Polket.
+// Copyright (C) 2021-2022 Polket.
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! Business Process
 //! 1. Sports brand create VFEBrand.
 //! 2. Producer registration.
@@ -53,8 +57,8 @@ use sp_std::{
 };
 use sp_runtime::traits::Zero;
 use sp_runtime::SaturatedConversion;
-use crate::mock::CostUnit;
-use crate::types::*;
+use sp_runtime::traits::CheckedDiv;
+use types::*;
 
 
 #[cfg(test)]
@@ -66,7 +70,6 @@ mod tests;
 mod impl_nonfungibles;
 mod types;
 
-
 type BalanceOf<T> =
 <<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::Balance;
 type AssetIdOf<T> =
@@ -75,9 +78,6 @@ type VFEBrandApprovalOf<T> = VFEBrandApprove<AssetIdOf<T>, BalanceOf<T>>;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::traits::fungibles;
-	use sp_runtime::traits::CheckedDiv;
-	use crate::mock::BlockNumber;
 	use super::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -128,13 +128,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type UnbindFee: Get<BalanceOf<Self>>;
 
-		/// The reward asset id that can be obtained by training
-		#[pallet::constant]
-		type IncentiveToken: Get<AssetIdOf<Self>>;
-
-		#[pallet::constant]
-		type NativeToken: Get<AssetIdOf<Self>>;
-
 		/// cost base unit
 		#[pallet::constant]
 		type CostUnit: Get<BalanceOf<Self>>;
@@ -151,6 +144,10 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
+
+	#[pallet::storage]
+	#[pallet::getter(fn incentive_token)]
+	pub type IncentiveToken<T> = StorageValue<_, AssetIdOf<T>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn nonce)]
@@ -402,6 +399,19 @@ pub mod pallet {
 			T::ItemId: From<T::ObjectId>,
 			T::ObjectId: From<T::CollectionId>,
 	{
+		/// set incentive token
+		/// -origin AccountId sudo key can do
+		#[pallet::weight(10_000)]
+		pub fn set_incentive_token(
+			origin: OriginFor<T>,
+			asset_id: T::ObjectId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			Ok(())
+		}
+
+
 		/// register_producer -Register the Producer
 		/// - origin AccountId -creater
 		#[pallet::weight(10_000)]
@@ -693,7 +703,7 @@ pub mod pallet {
 			let who = T::ProducerOrigin::ensure_origin(origin.clone())?;
 
 			Devices::<T>::try_mutate_exists(puk, |maybe_device| -> DispatchResult {
-				let mut device = maybe_device.take().ok_or(Error::<T>::DeviceNotExist)?;
+				let device = maybe_device.take().ok_or(Error::<T>::DeviceNotExist)?;
 				//check device status should Registered
 				ensure!(device.status == DeviceStatus::Registered, Error::<T>::DeviceHasBeenBond);
 				//check device producer
@@ -882,11 +892,11 @@ pub mod pallet {
 			let current_height = frame_system::Pallet::<T>::block_number();
 			let blocks = current_height - user.last_restore_block;
 			let duration = T::EnergyRecoveryDuration::get();
-			let lastEnergyRecovery = LastEnergyRecovery::<T>::get();
+			let last_energy_recovery = LastEnergyRecovery::<T>::get();
 
 			let user_energy_recovery_times = last_restore_block.checked_div(&duration).ok_or(Error::<T>::ValueOverflow)?;
 			let user_last_global_energy_recovery = user_energy_recovery_times.saturating_mul(duration);
-			let recoverable_times = lastEnergyRecovery.saturating_sub(user_last_global_energy_recovery);
+			let recoverable_times = last_energy_recovery.saturating_sub(user_last_global_energy_recovery);
 			let recoverable_times = recoverable_times.checked_div(&duration).ok_or(Error::<T>::ValueOverflow)?;
 			let recoverable_energy = recoverable_times.saturated_into::<u16>() * user.energy_total / 4;
 			let max_recovery_energy = recoverable_energy + user.energy;
@@ -925,16 +935,18 @@ pub mod pallet {
 				// Calculating level up fees for VFE
 				let t = T::LevelUpCostFactor::get();
 				let cost_unit = T::CostUnit::get();
-				let base_ability = (vfe.base_ability.efficiency + vfe.base_ability.skill
-					+ vfe.base_ability.luck + vfe.base_ability.durable) / 2;
+				let base_ability = (vfe.base_ability.efficiency
+					.saturating_add(vfe.base_ability.skill)
+					.saturating_add(vfe.base_ability.luck)
+					.saturating_sub(vfe.base_ability.durable)) / 2;
 				let g = vfe.rarity.growth_points();
 				let n = user.energy_total;
 				let level_up_cost = base_ability + level_up * (g - 1) * n;
-				let levelCost = BalanceOf::<T>::from(level_up_cost)
+				let level_cost = BalanceOf::<T>::from(level_up_cost)
 					.saturating_mul(t).saturating_mul(cost_unit);
 
 				// level up should burn token
-				T::Currencies::burn_from(T::IncentiveToken::get(), &who, levelCost)?;
+				T::Currencies::burn_from(T::IncentiveToken::get(), &who, level_cost)?;
 
 				vfe.level = vfe.level + level_up;
 				vfe.available_points = vfe.available_points + level_up * g;
@@ -1152,42 +1164,17 @@ impl<T: Config> Pallet<T>
 		(random_number as u16) % total
 	}
 
-	// Randomly choose a winner from among the total number of participants.
-	fn choose_winner(total: u32) -> (u32, T::Hash, T::BlockNumber) {
-		let (mut random_number, mut random_seed, mut block_number) = Self::generate_random_number();
-
-		// Best effort attempt to remove bias from modulus operator.
-		for _ in 1..T::MaxGenerateRandom::get() {
-			if random_number < u32::MAX - u32::MAX % total {
-				break;
-			}
-
-			let (random_number2, random_seed2, block_number2) = Self::generate_random_number();
-			random_number = random_number2;
-			random_seed = random_seed2;
-			block_number = block_number2;
-		}
-
-		(random_number % total, random_seed, block_number)
-	}
-
-	// check the device's public key.
-	fn check_device_pub(
+	fn verify_bind_device_message(
 		account: T::AccountId,
-		puk: [u8; 33],
-		signature: BoundedVec<u8, T::StringLimit>,
 		nonce: u32,
-	) -> Result<Device<T::CollectionId, T::ItemId, T::ObjectId, AssetIdOf<T>, BalanceOf<T>>, sp_runtime::DispatchError> {
-		// get the producer owner
-		let mut device = Devices::<T>::get(puk.clone()).ok_or(Error::<T>::DeviceNotExist)?;
-
+		puk: [u8; 33],
+		signature: &[u8],
+	) -> Result<bool, DispatchError> {
 		let pk = &puk[..];
 		let verify_key =
-			VerifyingKey::from_sec1_bytes(pk).map_err(|_| Error::<T>::PublicKeyEncodeError)?;
+			VerifyingKey::from_sec1_bytes(&puk[..]).map_err(|_| Error::<T>::PublicKeyEncodeError)?;
 
-		let target = &signature[..];
-
-		let sig = Signature::from_bytes(target).map_err(|_| Error::<T>::SigEncodeError)?;
+		let sig = Signature::from_bytes(signature).map_err(|_| Error::<T>::SigEncodeError)?;
 
 		let account_nonce = nonce.to_le_bytes().to_vec();
 		let account_rip160 = Ripemd::Hash::hash(account.encode().as_ref());
@@ -1199,6 +1186,21 @@ impl<T: Config> Pallet<T>
 		// check the validity of the signature
 		let flag = verify_key.verify(&msg, &sig).is_ok();
 
+		return Ok(flag);
+	}
+
+	// check the device's public key.
+	fn check_device_pub(
+		account: T::AccountId,
+		puk: [u8; 33],
+		signature: BoundedVec<u8, T::StringLimit>,
+		nonce: u32,
+	) -> Result<Device<T::CollectionId, T::ItemId, T::ObjectId, AssetIdOf<T>, BalanceOf<T>>, DispatchError> {
+		// get the producer owner
+		let mut device = Devices::<T>::get(puk.clone()).ok_or(Error::<T>::DeviceNotExist)?;
+
+		let flag = Self::verify_bind_device_message(account, nonce.clone(), puk, &signature[..])?;
+
 		ensure!(flag, Error::<T>::OperationIsNotAllowedForSign);
 
 		// check the nonce
@@ -1206,7 +1208,7 @@ impl<T: Config> Pallet<T>
 
 		device.nonce = nonce;
 
-		Devices::<T>::insert(puk, &device);
+		Devices::<T>::insert(&puk, device);
 
 		Ok(device)
 	}
@@ -1217,7 +1219,7 @@ impl<T: Config> Pallet<T>
 		puk: [u8; 33],
 		req_sig: BoundedVec<u8, T::StringLimit>,
 		msg: BoundedVec<u8, T::StringLimit>,
-	) -> Result<Device<T::CollectionId, T::ItemId, T::ObjectId, AssetIdOf<T>, BalanceOf<T>>, sp_runtime::DispatchError> {
+	) -> Result<Device<T::CollectionId, T::ItemId, T::ObjectId, AssetIdOf<T>, BalanceOf<T>>, DispatchError> {
 		// get the producer owner
 		let device = Devices::<T>::get(puk).ok_or(Error::<T>::DeviceNotExist)?;
 
@@ -1249,7 +1251,7 @@ impl<T: Config> Pallet<T>
 		device: &mut Device<T::CollectionId, T::ItemId, T::ObjectId, AssetIdOf<T>, BalanceOf<T>>,
 		account: T::AccountId,
 		report_data: BoundedVec<u8, T::StringLimit>,
-	) -> Result<(), sp_runtime::DispatchError> {
+	) -> Result<(), DispatchError> {
 		let brand_id = device.brand_id;
 		let item_id = device.item_id.ok_or(Error::<T>::DeviceNotBond)?;
 		let sport_type = device.sport_type;
@@ -1274,8 +1276,8 @@ impl<T: Config> Pallet<T>
 				let maximum_skipping_vec: [u8; 2] =
 					report_data[14..16].try_into().map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
 				let number_of_miss = report_data[14];
-				let effective_skipping_times_vec: [u8; 2] =
-					report_data[16..18].try_into().map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
+				// let effective_skipping_times_vec: [u8; 2] =
+				// 	report_data[16..18].try_into().map_err(|_| Error::<T>::DeviceMsgDecodeErr)?;
 
 				let training_time = u32::from_le_bytes(timestamp_vec);
 				// let skipping_times = u16::from_le_bytes(skipping_times_vec);
@@ -1367,7 +1369,7 @@ impl<T: Config> Pallet<T>
 	fn check_producer(
 		owner: T::AccountId,
 		id: T::ObjectId,
-	) -> Result<Producer<T::ObjectId, T::AccountId>, sp_runtime::DispatchError> {
+	) -> Result<Producer<T::ObjectId, T::AccountId>, DispatchError> {
 		// get the producer owner
 		let producer = Producers::<T>::get(id).ok_or(Error::<T>::ProducerNotExist)?;
 		// check the machine owner
@@ -1398,7 +1400,7 @@ impl<T: Config> Pallet<T>
 		class_id: &T::CollectionId,
 		producer_id: &T::ObjectId,
 		owner: &T::AccountId,
-	) -> Result<T::ItemId, sp_runtime::DispatchError> {
+	) -> Result<T::ItemId, DispatchError> {
 		let vfe_brand = VFEBrands::<T>::get(class_id).ok_or(Error::<T>::VFEBrandNotFound)?;
 		let rarity = vfe_brand.rarity;
 
@@ -1499,11 +1501,11 @@ impl<T: Config> Pallet<T>
 		vfe_brand_id: T::CollectionId,
 		producer_id: &T::ObjectId,
 		who: &T::AccountId,
-	) -> Result<T::ItemId, sp_runtime::DispatchError> {
+	) -> Result<T::ItemId, DispatchError> {
 		VFEApprovals::<T>::try_mutate(
 			&vfe_brand_id,
 			producer_id,
-			|maybe_approved| -> Result<T::ItemId, sp_runtime::DispatchError> {
+			|maybe_approved| -> Result<T::ItemId, DispatchError> {
 				let mut approved = maybe_approved.take().ok_or(Error::<T>::NoneValue)?;
 				let registered = approved
 					.registered

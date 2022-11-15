@@ -60,11 +60,9 @@ impl frame_system::Config for Test {
 }
 
 impl pallet_unique_id::Config for Test {
-	type CollectionId = u32;
-	type ItemId = u32;
-	type AssetId = u32;
-	type NormalId = u32;
 	type ObjectId = u32;
+	type StartId = ConstU32<1u32>;
+	type MaxId = ConstU32<100u32>;
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {

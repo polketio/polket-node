@@ -15,5 +15,5 @@ pub type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 static_assertions::assert_eq_size!(polket_primitives::Balance, u128);
 
 
-pub type SportInstance = pallet_uniques::Instance1;
+pub type VFEInstance = pallet_uniques::Instance1;
 pub type CouponsInstance = pallet_uniques::Instance2;

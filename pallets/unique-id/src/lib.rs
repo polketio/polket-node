@@ -4,11 +4,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::unused_unit)]
+
 use codec::HasCompact;
 use frame_support::pallet_prelude::*;
 pub use pallet::*;
 use pallet_support::uniqueid::UniqueIdGenerator;
-use sp_runtime::{traits::{AtLeast32BitUnsigned, CheckedAdd, One, Zero}, TypeId};
+use sp_runtime::{traits::{AtLeast32BitUnsigned, CheckedAdd, One, Zero, Bounded}, TypeId, SaturatedConversion};
+use sp_runtime::traits::{CheckedDiv, Saturating};
 
 #[cfg(test)]
 mod mock;
@@ -22,16 +24,16 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// The class ID type
-		type CollectionId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
-		/// The token ID type
-		type ItemId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
-		/// The asset ID type
-		type AssetId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
-		/// The asset ID type
-		type NormalId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 		/// The Object ID type
 		type ObjectId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
+
+		/// the start value of id
+		#[pallet::constant]
+		type StartId: Get<Self::ObjectId>;
+
+		/// the max value of id
+		#[pallet::constant]
+		type MaxId: Get<Self::ObjectId>;
 	}
 
 	#[pallet::pallet]
@@ -49,27 +51,6 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Next available class ID.
-	#[pallet::storage]
-	#[pallet::getter(fn next_class_id)]
-	pub type NextCollectionId<T: Config> = StorageValue<_, T::CollectionId, ValueQuery>;
-
-	/// Next available instance ID.
-	#[pallet::storage]
-	#[pallet::getter(fn next_instance_id)]
-	pub type NextItemId<T: Config> =
-	StorageMap<_, Twox64Concat, T::CollectionId, T::ItemId, ValueQuery>;
-
-
-	/// Next available asset ID.
-	#[pallet::storage]
-	#[pallet::getter(fn next_asset_id)]
-	pub type NextAssetId<T: Config> = StorageValue<_, T::AssetId, ValueQuery>;
-
-	/// Next available normal ID.
-	#[pallet::storage]
-	#[pallet::getter(fn next_normal_id)]
-	pub type NextNormalId<T: Config> = StorageValue<_, T::NormalId, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -91,10 +72,11 @@ impl<T: Config> UniqueIdGenerator for Pallet<T> {
 	fn generate_object_id(parentId: Self::ObjectId) -> Result<Self::ObjectId, sp_runtime::DispatchError> {
 		let asset_id = NextObjectId::<T>::try_mutate(parentId, |id| -> Result<T::ObjectId, DispatchError> {
 			if id.is_zero() {
-				*id = One::one();
+				*id = T::StartId::get();
 			}
 			let current_id = *id;
-			*id = id.checked_add(&One::one()).ok_or(Error::<T>::ValueOverflow)?;
+			ensure!(current_id <= T::MaxId::get(), Error::<T>::ValueOverflow);
+			*id = id.saturating_add(One::one());;
 			Ok(current_id)
 		})?;
 		Ok(asset_id)

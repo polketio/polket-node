@@ -31,6 +31,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>},
+		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
 	}
 );
@@ -111,6 +112,7 @@ impl pallet_assets::Config for Test {
 }
 
 use std::{cell::RefCell, collections::HashMap};
+use frame_system::EnsureSigned;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub(crate) enum Hook {
@@ -132,15 +134,25 @@ impl FrozenBalance<u32, AccountId, u64> for TestFreezer {
 	}
 }
 
-parameter_types! {
-	pub const NativeToken: u32 = 0;
+impl pallet_unique_id::Config for Test {
+	type ObjectId = u32;
+	type StartId = ConstU32<2u32>;
+	type MaxId = ConstU32<100u32>;
 }
 
-impl pallet_currencies::Config for Test {
+parameter_types! {
+	pub const NativeToken: u32 = 0;
+	pub const AssetId: u32 = u32::MAX - 1;
+}
+
+impl Config for Test {
 	type Event = Event;
+	type CreateOrigin = EnsureSigned<Self::AccountId>;
 	type NativeToken = NativeToken;
 	type MultiCurrency = Assets;
 	type NativeCurrency = Balances;
+	type UniqueId = UniqueId;
+	type AssetId = AssetId;
 }
 
 // Build genesis storage according to the mock runtime.

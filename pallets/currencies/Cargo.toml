@@ -31,6 +31,7 @@ pallet-support = { default-features = false, path='../support' }
 
 [dev-dependencies]
 pallet-balances = { git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '4.0.0-dev' }
+pallet-unique-id = { default-features = false, path='../unique-id' }
 
 [features]
 default = ['std']

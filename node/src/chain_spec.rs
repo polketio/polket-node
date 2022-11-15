@@ -1,11 +1,9 @@
 use hex_literal::hex;
 use jsonrpc_core::serde_json::Map;
-use polket_runtime::{
-	constants::currency::DOLLARS, opaque::SessionKeys, AccountId, AssetId,
-	AssetsModuleConfig, BabeConfig, Balance, BalancesConfig, CouncilConfig, Forcing, GenesisConfig,
-	SessionConfig, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-	TechnicalMembershipConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
-};
+use polket_runtime::{constants::currency::DOLLARS, opaque::SessionKeys, AccountId, ObjectId, AssetsConfig,
+					 BabeConfig, Balance, BalancesConfig, CouncilConfig, Forcing, GenesisConfig,
+					 SessionConfig, Signature, StakerStatus, StakingConfig, SudoConfig,
+					 SystemConfig, TechnicalMembershipConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY};
 use sc_service::{ChainType, Properties};
 use sc_telemetry::TelemetryEndpoints;
 use sp_consensus_babe::AuthorityId as BabeId;
@@ -34,8 +32,8 @@ type AccountPublic = <Signature as Verify>::Signer;
 
 /// Generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+	where
+		AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
@@ -180,13 +178,21 @@ fn testnet_genesis(
 	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
-	initial_anchor_assets: Vec<(AccountId, Balance, Vec<u8>, Vec<u8>, u8, Balance, Permill)>,
+	initial_assets: Vec<(AccountId, Balance, Vec<u8>, Vec<u8>, u8, Balance, Permill)>,
 	council: Vec<AccountId>,
 	technical_committee: Vec<AccountId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
 	const ENDOWMENT: Balance = 10_000_000_000 * DOLLARS;
 	const STASH: Balance = 10_000 * DOLLARS;
+
+	//Default 0 is Native Coin
+	let mut initial_assets = initial_assets;
+	initial_assets.insert(
+		0,
+		(root_key.clone(), 1, "Kusama".into(), "KSM".into(), 12, 0, Permill::from_percent(0)),
+	);
+
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
@@ -228,21 +234,21 @@ fn testnet_genesis(
 			// Assign network admin rights.
 			key: Some(root_key.clone()),
 		},
-		assets_module: AssetsModuleConfig {
-			assets: initial_anchor_assets
+		assets: AssetsConfig {
+			assets: initial_assets
 				.iter()
 				.enumerate()
-				.map(|(i, x)| (i as AssetId, x.0.clone(), true, x.1.clone()))
+				.map(|(i, x)| (i as ObjectId, x.0.clone(), true, x.1.clone()))
 				.collect::<Vec<_>>(),
-			metadata: initial_anchor_assets
+			metadata: initial_assets
 				.iter()
 				.enumerate()
-				.map(|(i, x)| (i as AssetId, x.2.clone(), x.3.clone(), x.4.clone()))
+				.map(|(i, x)| (i as ObjectId, x.2.clone(), x.3.clone(), x.4.clone()))
 				.collect::<Vec<_>>(),
-			accounts: initial_anchor_assets
+			accounts: initial_assets
 				.iter()
 				.enumerate()
-				.map(|(i, x)| (i as AssetId, x.0.clone(), 0))
+				.map(|(i, x)| (i as ObjectId, x.0.clone(), 0))
 				.collect::<Vec<_>>(),
 		},
 		council: CouncilConfig { members: council, phantom: Default::default() },
@@ -314,5 +320,5 @@ fn properties() -> Properties {
 	let mut properties = Map::new();
 	properties.insert("tokenSymbol".into(), "PNT".into());
 	properties.insert("tokenDecimals".into(), 12.into());
-	return properties
+	return properties;
 }
