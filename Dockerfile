@@ -9,8 +9,9 @@ WORKDIR /polket-node
 COPY . .
 # RUN apt-get update && apt-get install time cmake clang libclang-dev llvm -y
 RUN rustup toolchain install nightly-2022-08-30
-RUN make init & make build
-# RUN cargo build --locked --release
+RUN rustup target add wasm32-unknown-unknown --toolchain nightly-2022-08-30
+# RUN make init & make build
+RUN cargo build --locked --release
 
 # This is the 2nd stage: a very small image where we copy the binary."
 FROM docker.io/library/ubuntu:20.04
