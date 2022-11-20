@@ -60,8 +60,8 @@ fn verify_secp256r1_pk() {
 	// println!("message = {}", hex::encode(message));
 
 	let nonce: u32 = 1111;
-	println!("nonce 大端= {}", hex::encode(nonce.to_be_bytes()));
-	println!("nonce 小端= {}", hex::encode(nonce.to_le_bytes()));
+	println!("nonce big end= {}", hex::encode(nonce.to_be_bytes()));
+	println!("nonce little end {}", hex::encode(nonce.to_le_bytes()));
 	println!("nonce encode = {}", hex::encode(nonce.encode()));
 
 	// let msg = &hex!["5b8b4d29020ea5b1bc427c40a0cab2bf944be057ec482110f1d12b68008cd286"];

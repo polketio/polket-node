@@ -6,5 +6,5 @@ pub trait UniqueIdGenerator {
 	type ObjectId;
 
 	/// generate new object id by parentId, Return the current ID, and increment the current ID
-	fn generate_object_id(parentId: Self::ObjectId) -> Result<Self::ObjectId, sp_runtime::DispatchError>;
+	fn generate_object_id(parent_id: Self::ObjectId) -> Result<Self::ObjectId, sp_runtime::DispatchError>;
 }

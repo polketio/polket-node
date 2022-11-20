@@ -5,7 +5,6 @@
 use codec::{Decode, Encode};
 use frame_support::{traits::tokens::nonfungibles::Inspect, RuntimeDebug};
 use scale_info::TypeInfo;
-use sp_core::H256;
 use sp_std::vec::Vec;
 
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo)]

@@ -1,0 +1,6 @@
+.devcontainer
+.github
+.vscode
+.idea
+scripts
+target

@@ -42,10 +42,7 @@ pub mod time {
 
 /// Fee-related.
 pub mod fee {
-	use frame_support::{
-		dispatch::Weight,
-		weights::{WeightToFeeCoefficients, WeightToFeePolynomial},
-	};
+	use frame_support::weights::{WeightToFeeCoefficients, WeightToFeePolynomial};
 	use polket_primitives::Balance;
 	use smallvec::smallvec;
 	pub use sp_runtime::Perbill;
@@ -72,8 +69,7 @@ pub mod fee {
 pub mod id {
 	use polket_primitives::ObjectId;
 
-	pub const ProducerId: ObjectId = ObjectId::MAX - 1;
-	pub const VFEBrandId: ObjectId = ObjectId::MAX - 2;
-	pub const AssetId: ObjectId = ObjectId::MAX - 3;
-
+	pub const PRODUCER_ID: ObjectId = ObjectId::MAX - 1;
+	pub const VFE_BRAND_ID: ObjectId = ObjectId::MAX - 2;
+	pub const ASSET_ID: ObjectId = ObjectId::MAX - 3;
 }

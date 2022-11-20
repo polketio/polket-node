@@ -1,3 +1,7 @@
+// This file is part of Polket.
+// Copyright (C) 2021-2022 Polket.
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
@@ -14,12 +18,9 @@ use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_support::identity::IdentityRoleProducer;
-use runtime_common::{origin::EnsureIdentity, CouponsInstance, CurrencyToVote, VFEInstance};
+use runtime_common::{origin::EnsureIdentity, CurrencyToVote, VFEInstance};
 use sp_api::impl_runtime_apis;
-use sp_core::{
-	crypto::KeyTypeId,
-	OpaqueMetadata,
-};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
@@ -33,23 +34,25 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-use sp_staking::SessionIndex;
+
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
+use frame_support::traits::{Contains, EitherOfDiverse};
 pub use frame_support::{
 	construct_runtime, log, ord_parameter_types, parameter_types,
-	traits::{AsEnsureOriginWithArg, KeyOwnerProofSystem, Randomness, StorageInfo, ConstU128, ConstU32},
+	traits::{
+		AsEnsureOriginWithArg, ConstU128, ConstU32, KeyOwnerProofSystem, Randomness, StorageInfo,
+	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, Weight,
 	},
 	StorageValue,
 };
-use frame_support::traits::{Contains, EitherOfDiverse};
 pub use pallet_assets::Call as AssetsCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_identity::Call as IdentityCall;
@@ -63,16 +66,14 @@ use pallet_transaction_payment::CurrencyAdapter;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-use sp_runtime::traits::ConstU64;
-
 
 pub use polket_primitives::*;
 
 /// Constant values used within the runtime.
 pub mod constants;
 
-use constants::{currency::DOLLARS, fee::*, time::*};
 use crate::constants::currency::MILLICENTS;
+use constants::{currency::DOLLARS, time::*};
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -147,14 +148,10 @@ impl Contains<Call> for BaseCallFilter {
 	fn contains(call: &Call) -> bool {
 		if let Call::Assets(assets_method) = call {
 			return match assets_method {
-				pallet_assets::Call::create { .. }
-				| pallet_assets::Call::force_create { .. } => {
-					false
-				}
-				_ => {
-					true
-				}
-			};
+				pallet_assets::Call::create { .. } | pallet_assets::Call::force_create { .. } =>
+					false,
+				_ => true,
+			}
 		}
 
 		true
@@ -256,7 +253,7 @@ impl pallet_grandpa::Config for Runtime {
 	type KeyOwnerProofSystem = Historical;
 
 	type KeyOwnerProof =
-	<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 
 	type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
 		KeyTypeId,
@@ -517,7 +514,7 @@ impl pallet_utility::Config for Runtime {
 
 parameter_types! {
 	pub const NativeToken: u64 = 0;
-	pub const AssetId: ObjectId = constants::id::AssetId;
+	pub const AssetId: ObjectId = constants::id::ASSET_ID;
 }
 
 impl pallet_currencies::Config for Runtime {
@@ -591,7 +588,7 @@ parameter_types! {
 	pub const ProposalBondMinimum: Balance = 100 * DOLLARS;
 	pub const SpendPeriod: BlockNumber = 5 * MINUTES;
 	// pub const Burn: Permill = Permill::from_percent(1);
-	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+	pub const TreasuryPalletId: PalletId = PalletId(*b"poke/tsy");
 
 	// pub const TipCountdown: BlockNumber = 1 * DAYS;
 	// pub const TipFindersFee: Percent = Percent::from_percent(20);
@@ -646,21 +643,20 @@ impl pallet_multisig::Config for Runtime {
 // }
 
 parameter_types! {
-	pub const MaxGenerateRandom: u32 = 10000;
-	pub const VFEPalletId: PalletId = PalletId(*b"poc/acas");
-	pub const ProducerId: ObjectId = constants::id::ProducerId;
-	pub const VFEBrandId: ObjectId = constants::id::VFEBrandId;
+	pub const VFEPalletId: PalletId = PalletId(*b"poke/vfe");
+	pub const ProducerId: ObjectId = constants::id::PRODUCER_ID;
+	pub const VFEBrandId: ObjectId = constants::id::VFE_BRAND_ID;
 	pub const IncentiveToken: ObjectId = 1;
 	pub const UnbindFee: Balance = MILLICENTS;
 	pub const CostUnit: Balance = DOLLARS / 10;
 	pub const EnergyRecoveryDuration: BlockNumber = HOURS;
 	pub const LevelUpCostFactor: Balance = 7;
+	pub const InitEnergy: u16 = 8;
+	pub const EnergyRecoveryRatio: Permill = Permill::from_percent(25);
 }
-
 
 impl pallet_vfe::Config for Runtime {
 	type Event = Event;
-	// type BrandOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type BrandOrigin = EnsureSigned<AccountId>;
 	type ProducerOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
 	type ProducerId = ProducerId;
@@ -671,12 +667,12 @@ impl pallet_vfe::Config for Runtime {
 	type UniqueId = UniqueId;
 	type UniquesInstance = VFEInstance;
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
-	type MaxGenerateRandom = MaxGenerateRandom;
-	type IncentiveToken = IncentiveToken;
 	type UnbindFee = UnbindFee;
 	type CostUnit = CostUnit;
 	type EnergyRecoveryDuration = EnergyRecoveryDuration;
 	type LevelUpCostFactor = LevelUpCostFactor;
+	type InitEnergy = InitEnergy;
+	type EnergyRecoveryRatio = EnergyRecoveryRatio;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -715,8 +711,8 @@ construct_runtime!(
 );
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
-	where
-		Call: From<LocalCall>,
+where
+	Call: From<LocalCall>,
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
 		call: Call,
@@ -761,8 +757,8 @@ impl frame_system::offchain::SigningTypes for Runtime {
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
-	where
-		Call: From<C>,
+where
+	Call: From<C>,
 {
 	type Extrinsic = UncheckedExtrinsic;
 	type OverarchingCall = Call;

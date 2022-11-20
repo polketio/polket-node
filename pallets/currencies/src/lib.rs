@@ -7,19 +7,17 @@
 use frame_support::{
 	dispatch::DispatchResult,
 	pallet_prelude::*,
-	traits::{fungible, fungibles::{Inspect, Mutate, Transfer}, tokens::WithdrawConsequence},
+	traits::{
+		fungible,
+		fungibles::{Inspect, Mutate, Transfer},
+	},
 };
 use frame_system::pallet_prelude::*;
 
 use frame_system::Config as SystemConfig;
 pub use pallet::*;
-use sp_runtime::{
-	traits::{Saturating, StaticLookup, Zero},
-	FixedPointNumber, FixedU128,
-};
 use pallet_support::fungibles::AssetFronze;
-use sp_std::vec::Vec;
-// use codec::{MaxEncodedLen};
+use sp_runtime::traits::{Saturating, StaticLookup};
 
 mod impl_fungibles;
 
@@ -31,19 +29,16 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-type BalanceOf<T> = <<T as Config>::MultiCurrency as Inspect<
-	<T as frame_system::Config>::AccountId,
->>::Balance;
-type AssetIdOf<T> = <<T as Config>::MultiCurrency as Inspect<
-	<T as frame_system::Config>::AccountId,
->>::AssetId;
+type BalanceOf<T> =
+	<<T as Config>::MultiCurrency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+type AssetIdOf<T> =
+	<<T as Config>::MultiCurrency as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::dispatch::RawOrigin;
+	use super::*;
 	use frame_support::traits::fungibles::Create;
 	use pallet_support::uniqueid::UniqueIdGenerator;
-	use super::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -59,17 +54,17 @@ pub mod pallet {
 
 		/// pallet_assets
 		type MultiCurrency: Inspect<Self::AccountId>
-		+ Mutate<Self::AccountId>
-		+ Transfer<Self::AccountId>
-		+ Create<Self::AccountId>;
+			+ Mutate<Self::AccountId>
+			+ Transfer<Self::AccountId>
+			+ Create<Self::AccountId>;
 
 		/// native currency
-		type NativeCurrency: fungible::Inspect<Self::AccountId, Balance=BalanceOf<Self>>
-		+ fungible::Mutate<Self::AccountId, Balance=BalanceOf<Self>>
-		+ fungible::Transfer<Self::AccountId, Balance=BalanceOf<Self>>;
+		type NativeCurrency: fungible::Inspect<Self::AccountId, Balance = BalanceOf<Self>>
+			+ fungible::Mutate<Self::AccountId, Balance = BalanceOf<Self>>
+			+ fungible::Transfer<Self::AccountId, Balance = BalanceOf<Self>>;
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
-		type UniqueId: UniqueIdGenerator<ObjectId=AssetIdOf<Self>>;
+		type UniqueId: UniqueIdGenerator<ObjectId = AssetIdOf<Self>>;
 
 		/// The asset id
 		#[pallet::constant]
@@ -175,9 +170,7 @@ pub mod pallet {
 			let from = T::Lookup::lookup(source)?;
 			let to = T::Lookup::lookup(dest)?;
 
-			<Self as Transfer<T::AccountId>>::transfer(
-				asset_id, &from, &to, amount, false,
-			)?;
+			<Self as Transfer<T::AccountId>>::transfer(asset_id, &from, &to, amount, false)?;
 			Ok(())
 		}
 
