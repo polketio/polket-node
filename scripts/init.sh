@@ -9,4 +9,5 @@ if [ -z $CI_PROJECT_NAME ] ; then
    rustup update stable
 fi
 
-rustup target add wasm32-unknown-unknown --toolchain nightly
+rustup toolchain install nightly-2022-08-30
+rustup target add wasm32-unknown-unknown --toolchain nightly-nightly-2022-08-30

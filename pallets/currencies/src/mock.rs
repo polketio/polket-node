@@ -111,8 +111,8 @@ impl pallet_assets::Config for Test {
 	type AssetAccountDeposit = AssetAccountDeposit;
 }
 
-use std::{cell::RefCell, collections::HashMap};
 use frame_system::EnsureSigned;
+use std::{cell::RefCell, collections::HashMap};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub(crate) enum Hook {

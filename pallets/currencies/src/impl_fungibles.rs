@@ -12,6 +12,7 @@ use frame_support::{
 		tokens::{DepositConsequence, WithdrawConsequence},
 	},
 };
+use sp_std::{vec, vec::Vec};
 
 impl<T: Config> fungibles::Inspect<<T as SystemConfig>::AccountId> for Pallet<T> {
 	type AssetId = AssetIdOf<T>;
@@ -61,12 +62,12 @@ impl<T: Config> fungibles::Inspect<<T as SystemConfig>::AccountId> for Pallet<T>
 		asset: Self::AssetId,
 		who: &<T as SystemConfig>::AccountId,
 		amount: Self::Balance,
-		mint :bool,
+		mint: bool,
 	) -> DepositConsequence {
 		if asset == T::NativeToken::get() {
-			<T::NativeCurrency as fungible::Inspect<_>>::can_deposit(who, amount,mint)
+			<T::NativeCurrency as fungible::Inspect<_>>::can_deposit(who, amount, mint)
 		} else {
-			T::MultiCurrency::can_deposit(asset, who, amount,mint)
+			T::MultiCurrency::can_deposit(asset, who, amount, mint)
 		}
 	}
 
@@ -145,49 +146,70 @@ impl<T: Config> fungibles::Transfer<T::AccountId> for Pallet<T> {
 	}
 }
 
+impl<T: Config> fungibles::metadata::Inspect<T::AccountId> for Pallet<T> {
+	fn name(asset: Self::AssetId) -> Vec<u8> {
+		let actual =
+			if asset == T::NativeToken::get() { vec![] } else { T::MultiCurrency::name(asset) };
+		actual
+	}
 
+	fn symbol(asset: Self::AssetId) -> Vec<u8> {
+		let actual =
+			if asset == T::NativeToken::get() { vec![] } else { T::MultiCurrency::symbol(asset) };
+		actual
+	}
 
-impl<T: Config>  AssetFronze<AssetIdOf<T>, T::AccountId, BalanceOf<T>> for Pallet<T>  {
+	fn decimals(asset: Self::AssetId) -> u8 {
+		let actual =
+			if asset == T::NativeToken::get() { 0 } else { T::MultiCurrency::decimals(asset) };
+		actual
+	}
+}
+
+impl<T: Config> AssetFronze<AssetIdOf<T>, T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn frozen_balance(
 		from: &T::AccountId,
 		asset_id: AssetIdOf<T>,
-		value:  BalanceOf<T>,
-	) ->  Result<BalanceOf<T>, sp_runtime::DispatchError>{
+		value: BalanceOf<T>,
+	) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+		let result = T::MultiCurrency::can_withdraw(asset_id, from, value);
 
-		let result = T::MultiCurrency::can_withdraw(asset_id,from,value);
+		ensure!(result == WithdrawConsequence::Success, Error::<T>::BalanceNotEnough);
 
-		ensure!(result == WithdrawConsequence::Success,Error::<T>::BalanceNotEnough);
-
-		FrozenBalances::<T>::try_mutate(from, asset_id, |maybe_balance| -> Result<BalanceOf<T>, sp_runtime::DispatchError>  {
-			if let Some(f_balance) = maybe_balance {
-				*maybe_balance = Some(f_balance.saturating_add(value));
-			}else{
-				*maybe_balance = Some(value);
-			}
-			Ok(value)
-		})
-
+		FrozenBalances::<T>::try_mutate(
+			from,
+			asset_id,
+			|maybe_balance| -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+				if let Some(f_balance) = maybe_balance {
+					*maybe_balance = Some(f_balance.saturating_add(value));
+				} else {
+					*maybe_balance = Some(value);
+				}
+				Ok(value)
+			},
+		)
 	}
-
 
 	fn unfrozen_balance(
 		from: &T::AccountId,
 		asset_id: AssetIdOf<T>,
-		value:  BalanceOf<T>,
-	) ->  Result<BalanceOf<T>, sp_runtime::DispatchError>{
-		FrozenBalances::<T>::try_mutate(from, asset_id, |maybe_balance| -> Result<BalanceOf<T>, sp_runtime::DispatchError>  {
-			let frozen  = maybe_balance.ok_or(Error::<T>::FrozenBalanceNotExist)?;
-			
-			ensure!(frozen > value,Error::<T>::BalanceNotEnough);
+		value: BalanceOf<T>,
+	) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+		FrozenBalances::<T>::try_mutate(
+			from,
+			asset_id,
+			|maybe_balance| -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+				let frozen = maybe_balance.ok_or(Error::<T>::FrozenBalanceNotExist)?;
 
-			*maybe_balance = Some(frozen.saturating_sub(value));
+				ensure!(frozen > value, Error::<T>::BalanceNotEnough);
 
-			Ok(value)
-		})
+				*maybe_balance = Some(frozen.saturating_sub(value));
+
+				Ok(value)
+			},
+		)
 	}
-
 }
-
 
 // impl<T: Config<I>, I: 'static> fungibles::Unbalanced<T::AccountId> for Pallet<T, I> {
 // 	fn set_balance(_: Self::AssetId, _: &T::AccountId, _: Self::Balance) -> DispatchResult {
@@ -233,49 +255,6 @@ impl<T: Config>  AssetFronze<AssetIdOf<T>, T::AccountId, BalanceOf<T>> for Palle
 // 			Ok(()) => amount,
 // 			Err(_) => Zero::zero(),
 // 		}
-// 	}
-// }
-
-// impl<T: Config<I>, I: 'static> fungibles::Create<T::AccountId> for Pallet<T, I> {
-// 	fn create(
-// 		id: T::AssetId,
-// 		admin: T::AccountId,
-// 		is_sufficient: bool,
-// 		min_balance: Self::Balance,
-// 	) -> DispatchResult {
-// 		Self::do_force_create(id, admin, is_sufficient, min_balance)
-// 	}
-// }
-
-// impl<T: Config<I>, I: 'static> fungibles::Destroy<T::AccountId> for Pallet<T, I> {
-// 	type DestroyWitness = DestroyWitness;
-
-// 	fn get_destroy_witness(asset: &T::AssetId) -> Option<Self::DestroyWitness> {
-// 		Asset::<T, I>::get(asset).map(|asset_details| asset_details.destroy_witness())
-// 	}
-
-// 	fn destroy(
-// 		id: T::AssetId,
-// 		witness: Self::DestroyWitness,
-// 		maybe_check_owner: Option<T::AccountId>,
-// 	) -> Result<Self::DestroyWitness, DispatchError> {
-// 		Self::do_destroy(id, witness, maybe_check_owner)
-// 	}
-// }
-
-// impl<T: Config<I>, I: 'static> fungibles::metadata::Inspect<<T as SystemConfig>::AccountId>
-// 	for Pallet<T, I>
-// {
-// 	fn name(asset: T::AssetId) -> Vec<u8> {
-// 		Metadata::<T, I>::get(asset).name.to_vec()
-// 	}
-
-// 	fn symbol(asset: T::AssetId) -> Vec<u8> {
-// 		Metadata::<T, I>::get(asset).symbol.to_vec()
-// 	}
-
-// 	fn decimals(asset: T::AssetId) -> u8 {
-// 		Metadata::<T, I>::get(asset).decimals
 // 	}
 // }
 

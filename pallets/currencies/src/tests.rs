@@ -46,7 +46,14 @@ fn transfer_unit_test() {
 #[test]
 fn create_asset_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Currencies::create(Origin::signed(ALICE), BOB, 99));
+		assert_ok!(Currencies::create(
+			Origin::signed(ALICE),
+			ALICE,
+			99,
+			"Polkadot".into(),
+			"DOT".into(),
+			10
+		));
 		assert_eq!(Assets::minimum_balance(2), 99);
 	});
 }

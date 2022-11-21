@@ -11,13 +11,16 @@ use frame_support::{
 		fungible,
 		fungibles::{Inspect, Mutate, Transfer},
 	},
+	transactional,
 };
 use frame_system::pallet_prelude::*;
 
+use frame_support::traits::fungibles::{metadata, Create};
 use frame_system::Config as SystemConfig;
 pub use pallet::*;
-use pallet_support::fungibles::AssetFronze;
+use pallet_support::{fungibles::AssetFronze, uniqueid::UniqueIdGenerator};
 use sp_runtime::traits::{Saturating, StaticLookup};
+use sp_std::vec::Vec;
 
 mod impl_fungibles;
 
@@ -37,8 +40,6 @@ type AssetIdOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::traits::fungibles::Create;
-	use pallet_support::uniqueid::UniqueIdGenerator;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -56,7 +57,9 @@ pub mod pallet {
 		type MultiCurrency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ Transfer<Self::AccountId>
-			+ Create<Self::AccountId>;
+			+ Create<Self::AccountId>
+			+ metadata::Inspect<Self::AccountId>
+			+ metadata::Mutate<Self::AccountId>;
 
 		/// native currency
 		type NativeCurrency: fungible::Inspect<Self::AccountId, Balance = BalanceOf<Self>>
@@ -122,15 +125,20 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Issue a new class of fungible assets from a public origin.
 		#[pallet::weight(10_000)]
+		#[transactional]
 		pub fn create(
 			origin: OriginFor<T>,
 			admin: <T::Lookup as StaticLookup>::Source,
 			#[pallet::compact] min_balance: BalanceOf<T>,
+			name: Vec<u8>,
+			symbol: Vec<u8>,
+			#[pallet::compact] decimals: u8,
 		) -> DispatchResult {
 			T::CreateOrigin::ensure_origin(origin.clone())?;
 			let admin = T::Lookup::lookup(admin)?;
 			let index = T::UniqueId::generate_object_id(T::AssetId::get())?;
-			T::MultiCurrency::create(index, admin, true, min_balance)
+			T::MultiCurrency::create(index, admin.clone(), true, min_balance)?;
+			<T::MultiCurrency as metadata::Mutate<_>>::set(index, &admin, name, symbol, decimals)
 		}
 
 		/// Transfer some balance to another account under `asset_id`.
