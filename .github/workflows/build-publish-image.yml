@@ -11,7 +11,7 @@ on:
   
 # Set an environment variable (that can be overriden) for the Docker Repo
 env:
-  DOCKER_REPO: docker.io/paritytech/ci-linux:production
+  DOCKER_REPO: polketio/polket-node
 
 jobs:
 
@@ -43,4 +43,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.DOCKER_REPO }}:v${{ steps.rev.outputs.value }}, ${{ secrets.DOCKER_REPO }}:latest
+          tags: ${{ env.DOCKER_REPO }}:v${{ steps.rev.outputs.value }}
