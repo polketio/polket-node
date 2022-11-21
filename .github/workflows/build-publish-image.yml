@@ -11,7 +11,7 @@ on:
   
 # Set an environment variable (that can be overriden) for the Docker Repo
 env:
-  DOCKER_REPO: docker.io/paritytech/ci-linux:production
+  DOCKER_REPO: polketio/polket-node
 
 jobs:
 
