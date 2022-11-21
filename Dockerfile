@@ -29,6 +29,9 @@ RUN useradd -m -u 1000 -U -s /bin/sh -d /node-dev node-dev && \
     mkdir -p /chain-data /node-dev/.local/share && \
     chown -R node-dev:node-dev /chain-data && \
     ln -s /chain-data /node-dev/.local/share/polket-node && \
+    mkdir /specs && \
+    chown -R node-dev:node-dev /specs && \
+    ln -s /specs /node-dev/.local/share/specs && \
     # unclutter and minimize the attack surface
     rm -rf /usr/bin /usr/sbin && \
     # check if executable works in this container
@@ -36,7 +39,10 @@ RUN useradd -m -u 1000 -U -s /bin/sh -d /node-dev node-dev && \
 
 USER node-dev
 
+# Copy specs json file.
+COPY ./specs/testnet.json /specs
+
 EXPOSE 30333 9933 9944 9615
-VOLUME ["/chain-data"]
+VOLUME ["/chain-data", "/specs"]
 
 ENTRYPOINT ["/usr/local/bin/polket-node"]
