@@ -6,6 +6,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use polket_primitives::{ObjectId, BlockNumber, Hash};
+
 pub mod origin;
 
 /// The type used for currency conversion.
@@ -17,3 +19,5 @@ static_assertions::assert_eq_size!(polket_primitives::Balance, u128);
 
 pub type VFEInstance = pallet_uniques::Instance1;
 pub type CouponsInstance = pallet_uniques::Instance2;
+
+pub type VFEDetail = pallet_vfe::types::VFEDetail<ObjectId, ObjectId, Hash, BlockNumber>;

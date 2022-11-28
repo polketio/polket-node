@@ -18,7 +18,7 @@ use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_support::identity::IdentityRoleProducer;
-use runtime_common::{origin::EnsureIdentity, CurrencyToVote, VFEInstance};
+pub use runtime_common::{origin::EnsureIdentity, CurrencyToVote, VFEDetail, VFEInstance};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -107,7 +107,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("polket"),
 	impl_name: create_runtime_str!("polket"),
 	authoring_version: 1,
-	spec_version: 7,
+	spec_version: 9,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -648,15 +648,18 @@ parameter_types! {
 	pub const UnbindFee: Balance = MILLICENTS;
 	pub const CostUnit: Balance = DOLLARS / 10;
 	pub const EnergyRecoveryDuration: BlockNumber = HOURS;
+	pub const DailyEarnedResetDuration: BlockNumber = HOURS * 6;
 	pub const LevelUpCostFactor: Balance = 7;
 	pub const InitEnergy: u16 = 8;
+	pub const InitEarningCap: u16 = 500;
 	pub const EnergyRecoveryRatio: Permill = Permill::from_percent(25);
 }
 
 impl pallet_vfe::Config for Runtime {
 	type Event = Event;
 	type BrandOrigin = EnsureSigned<AccountId>;
-	type ProducerOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
+	// type ProducerOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
+	type ProducerOrigin = EnsureSigned<AccountId>;
 	type ProducerId = ProducerId;
 	type VFEBrandId = VFEBrandId;
 	type ObjectId = ObjectId;
@@ -668,8 +671,10 @@ impl pallet_vfe::Config for Runtime {
 	type UnbindFee = UnbindFee;
 	type CostUnit = CostUnit;
 	type EnergyRecoveryDuration = EnergyRecoveryDuration;
+	type DailyEarnedResetDuration = DailyEarnedResetDuration;
 	type LevelUpCostFactor = LevelUpCostFactor;
 	type InitEnergy = InitEnergy;
+	type InitEarningCap = InitEarningCap;
 	type EnergyRecoveryRatio = EnergyRecoveryRatio;
 }
 
@@ -964,6 +969,13 @@ impl_runtime_apis! {
 			len: u32,
 		) -> pallet_transaction_payment::FeeDetails<Balance> {
 			TransactionPayment::query_fee_details(uxt, len)
+		}
+	}
+
+	//custom runtime-api
+	impl pallet_vfe_rpc_runtime_api::VfeApi<Block, AccountId, ObjectId, VFEDetail> for Runtime {
+		fn get_vfe_details_by_address(account: AccountId, brand_id: ObjectId) -> Vec<VFEDetail> {
+			VFE::get_vfe_details_by_address(account, brand_id)
 		}
 	}
 

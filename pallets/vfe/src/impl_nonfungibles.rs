@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::*;
-use frame_support::traits::tokens::nonfungibles::*;
 use sp_runtime::DispatchResult;
 
 impl<T: Config> Inspect<T::AccountId> for Pallet<T> {

@@ -12,7 +12,7 @@ use frame_support::{
 		tokens::{DepositConsequence, WithdrawConsequence},
 	},
 };
-use sp_std::{vec, vec::Vec};
+use sp_std::vec::Vec;
 
 impl<T: Config> fungibles::Inspect<<T as SystemConfig>::AccountId> for Pallet<T> {
 	type AssetId = AssetIdOf<T>;
@@ -148,21 +148,15 @@ impl<T: Config> fungibles::Transfer<T::AccountId> for Pallet<T> {
 
 impl<T: Config> fungibles::metadata::Inspect<T::AccountId> for Pallet<T> {
 	fn name(asset: Self::AssetId) -> Vec<u8> {
-		let actual =
-			if asset == T::NativeToken::get() { vec![] } else { T::MultiCurrency::name(asset) };
-		actual
+		T::MultiCurrency::name(asset)
 	}
 
 	fn symbol(asset: Self::AssetId) -> Vec<u8> {
-		let actual =
-			if asset == T::NativeToken::get() { vec![] } else { T::MultiCurrency::symbol(asset) };
-		actual
+		T::MultiCurrency::symbol(asset)
 	}
 
 	fn decimals(asset: Self::AssetId) -> u8 {
-		let actual =
-			if asset == T::NativeToken::get() { 0 } else { T::MultiCurrency::decimals(asset) };
-		actual
+		T::MultiCurrency::decimals(asset)
 	}
 }
 

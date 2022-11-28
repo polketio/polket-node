@@ -65,6 +65,9 @@ node-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot
 # local libraries
 polket-runtime = {path = '../runtime/testnet', version = '0.1.0'}
 
+# custom rpc
+pallet-vfe-rpc = { path = "../pallets/vfe/rpc"}
+
 [features]
 default = []
 runtime-benchmarks = ['polket-runtime/runtime-benchmarks']

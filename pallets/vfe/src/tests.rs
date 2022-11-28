@@ -9,6 +9,14 @@ use hex_literal::hex;
 use rand_core::OsRng;
 use sp_std::convert::TryInto;
 use sha2::Digest;
+use p256::{
+	ecdsa::{
+		signature::{Signature as Sig, Verifier, Signer},
+		Signature, SigningKey, VerifyingKey,
+	},
+	elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
+	NistP256,
+};
 
 macro_rules! bvec {
 	($( $x:tt )*) => {
@@ -273,15 +281,22 @@ fn bind_device_unit_test() {
 			None
 		));
 		System::assert_has_event(Event::VFE(crate::Event::DeviceBound(user.clone(), puk, 1, 1)));
-		assert!(VFEBindDevices::<Test>::contains_key(1, 1));
+		// assert!(VFEBindDevices::<Test>::contains_key(1, 1));
 		let device = Devices::<Test>::get(puk).expect("can not find device");
 		assert!(device.item_id.is_some());
 		let vfe = VFEDetails::<Test>::get(1, 1).expect("VFEDetail not exist");
+		assert_eq!(vfe.device_key, Some(device.pk));
 		assert_eq!(vfe.level, 0);
 		println!("vfe.base.efficiency: {}", vfe.base_ability.efficiency);
 		println!("vfe.base.skill: {}", vfe.base_ability.skill);
 		println!("vfe.base.luck: {}", vfe.base_ability.luck);
 		println!("vfe.base.durable: {}", vfe.base_ability.durable);
+
+		let user_info = Users::<Test>::get(&user).unwrap();
+		assert_eq!(user_info.energy_total, 8);
+		assert_eq!(user_info.energy, 8);
+		assert_eq!(user_info.earning_cap, 500 * 100000);
+		assert_eq!(user_info.earned, 0);
 
 		//unbind_device
 		assert_ok!(VFE::unbind_device(
@@ -290,9 +305,11 @@ fn bind_device_unit_test() {
 			1,
 		));
 		System::assert_has_event(Event::VFE(crate::Event::DeviceUnbound(user.clone(), puk, 1, 1)));
-		assert!(!VFEBindDevices::<Test>::contains_key(1, 1));
+		// assert!(!VFEBindDevices::<Test>::contains_key(1, 1));
 		let device = Devices::<Test>::get(puk).expect("can not find device");
 		assert!(device.item_id.is_none());
+		let vfe = VFEDetails::<Test>::get(1, 1).expect("VFEDetail not exist");
+		assert!(vfe.device_key.is_none());
 		
 	});
 }
@@ -333,6 +350,7 @@ fn upload_training_report_unit_test() {
 		let user_data = Users::<Test>::get(&user).expect("cannot find user");
 		// println!("user data: {:?}", user_data);
 		assert_eq!(user_data.energy, 2);
+		assert_eq!(user_data.earned, 9000000);
 		let vfe_data = VFEDetails::<Test>::get(1,1).expect("cannot find vfe detail");
 		assert_eq!(vfe_data.remaining_battery, 94);
 
@@ -393,29 +411,39 @@ fn upload_training_report_unit_test() {
 }
 
 #[test]
-fn global_energy_recovery_unit_test()  {
+fn global_energy_recovery_and_daily_earned_reset_unit_test()  {
 	new_test_ext().execute_with(|| {
 		assert_eq!(LastEnergyRecovery::<Test>::get(), 0);
+		assert_eq!(LastDailyEarnedReset::<Test>::get(), 0);
 		run_to_block(5);
 		assert_eq!(LastEnergyRecovery::<Test>::get(), 0);
+		assert_eq!(LastDailyEarnedReset::<Test>::get(), 0);
 		run_to_block(9);
 		assert_eq!(LastEnergyRecovery::<Test>::get(), 8);
+		assert_eq!(LastDailyEarnedReset::<Test>::get(), 0);
 		System::assert_has_event(Event::VFE(crate::Event::GlobalEnergyRecoveryOccurred(8)));
 		run_to_block(17);
 		assert_eq!(LastEnergyRecovery::<Test>::get(), 16);
+		assert_eq!(LastDailyEarnedReset::<Test>::get(), 0);
 		System::assert_has_event(Event::VFE(crate::Event::GlobalEnergyRecoveryOccurred(16)));
 		run_to_block(20);
 		assert_eq!(LastEnergyRecovery::<Test>::get(), 16);
+		run_to_block(25);
+		assert_eq!(LastEnergyRecovery::<Test>::get(), 24);
+		assert_eq!(LastDailyEarnedReset::<Test>::get(), 24);
+		System::assert_has_event(Event::VFE(crate::Event::GlobalDailyEarnedResetOccurred(24)));
 		run_to_block(9889);
-		assert_eq!(LastEnergyRecovery::<Test>::get(), 
-		9889u64.saturating_div(EnergyRecoveryDuration::get())* EnergyRecoveryDuration::get());
+		let last_update = 9889u64.saturating_div(EnergyRecoveryDuration::get())* EnergyRecoveryDuration::get();
+		assert_eq!(LastEnergyRecovery::<Test>::get(), last_update);
+		assert_eq!(LastDailyEarnedReset::<Test>::get(), last_update);
 		System::assert_has_event(Event::VFE(crate::Event::GlobalEnergyRecoveryOccurred(9888)));
+		System::assert_has_event(Event::VFE(crate::Event::GlobalDailyEarnedResetOccurred(9888)));
 	});
 }
 
 
 #[test]
-fn restore_energy_unit_test() {
+fn user_restore_unit_test() {
 	new_test_ext().execute_with(|| {
 		let producer = ALICE;
 		let user = DANY;
@@ -439,18 +467,20 @@ fn restore_energy_unit_test() {
 		//after global energy recovery occurred
 		run_to_block(9);
 		
-		assert_ok!(VFE::restore_energy(Origin::signed(user.clone())));
+		assert_ok!(VFE::user_restore(Origin::signed(user.clone())));
 		System::assert_has_event(Event::VFE(crate::Event::UserEnergyRestored(user.clone(), 2)));
 		let user_data = Users::<Test>::get(&user).expect("cannot find user");
 		// println!("user data: {:?}", user_data);
 		assert_eq!(user_data.energy, 4);
+		assert!(user_data.earned !=0);
 
 		//after repeatedly global energy recovery occurred
 		run_to_block(229);
-		assert_ok!(VFE::restore_energy(Origin::signed(user.clone())));
+		assert_ok!(VFE::user_restore(Origin::signed(user.clone())));
 		System::assert_has_event(Event::VFE(crate::Event::UserEnergyRestored(user.clone(), 4)));
 		let user_data = Users::<Test>::get(&user).expect("cannot find user");
 		assert_eq!(user_data.energy, 8);
+		assert!(user_data.earned==0);
 
 	});
 }
@@ -517,12 +547,20 @@ fn level_up_unit_test() {
 		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
 		assert_eq!(vfe.level, 1);
 		assert_eq!(vfe.available_points, 4);
+		
+		let user_info = Users::<Test>::get(&user).unwrap();
+		assert_eq!(user_info.energy_total, 8);
+		assert_eq!(user_info.earning_cap, 1000 * 100000);
 
 		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 3));
 		System::assert_has_event(Event::VFE(crate::Event::VFELevelUp(1, 1, 3, 51800000)));
 		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
 		assert_eq!(vfe.level, 4);
 		assert_eq!(vfe.available_points, 16);
+
+		let user_info = Users::<Test>::get(&user).unwrap();
+		assert_eq!(user_info.energy_total, 16);
+		assert_eq!(user_info.earning_cap, 2500 * 100000);
 
 		// let user_balance = Currencies::balance(1, &user);
 		// println!("user_balance = {}", user_balance);
@@ -585,6 +623,24 @@ fn transfer_unit_test() {
 	});
 }
 
+#[test]
+fn verify_bind_device_message_unit_test() {
+	new_test_ext().execute_with(|| {
+		// verify_bind_device_message
+		let x = &hex!["0339d3e6e837d675ce77e85d708caf89ddcdbf53c8e510775c9cb9ec06282475a0"];
+		// let pubkey = VerifyingKey::from_sec1_bytes(x).unwrap();
+		let sig = Signature::from_bytes(&hex!["d851b2fcd63bf78a52008e043cb28c47523c2ee2c3c9425c8b0a005e2f6f53b101690e030e0b2c8c6ae99c3a40c02f58dffd1fded34f84953d0e6ea671d83930"]).unwrap();
+		let nonce = 0u32;
+		let account_id = AccountId::new(hex!["764f41f48346146c043c5d0c7948f4b24a7877c649d5b72973850ccbe0f86840"]) ;
+		let account_rip160 = Ripemd::Hash::hash(account_id.encode().as_ref());
+		//13a7c41c6fa23d80f586051c6ccce5eb60192a20
+		//13a7c41c6fa23d80f586051c6ccce5eb60192a20
+		println!("ripemd160: {}", hex::encode(account_rip160));
+
+		assert_ok!(VFE::verify_bind_device_message(account_id, nonce, x.to_owned(), sig.as_bytes()), true);
+	});
+}
+
 
 #[test]
 fn verify_training_data_signature() {
@@ -607,7 +663,7 @@ fn verify_training_data_signature() {
 }
 
 #[test]
-fn train_report_encode_unit_test() {
+fn training_report_encode_unit_test() {
 	let report = JumpRopeTrainingReport {
 		timestamp: 1668676716,
 			training_duration: 183,

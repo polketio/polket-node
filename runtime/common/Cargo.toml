@@ -26,6 +26,7 @@ pallet-uniques = { git = 'https://github.com/paritytech/substrate.git', default-
 polket-primitives = { default-features = false, path = '../../primitives' }
 pallet-support = { default-features = false, path = '../../pallets/support' }
 pallet-identity-extra = { default-features = false, path = '../../pallets/identity-extra' }
+pallet-vfe = {default-features = false, path = '../../pallets/vfe', version = '0.1.0'}
 
 [features]
 default = ['std']
@@ -49,6 +50,7 @@ std = [
     'pallet-support/std',
 	'pallet-identity-extra/std',
     'polket-primitives/std',
+    'pallet-vfe/std',
 
 ]
 try-runtime = ['frame-support/try-runtime']

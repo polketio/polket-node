@@ -4579,10 +4579,34 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "scale-info",
+ "serde",
  "sha2 0.10.2",
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-vfe-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-vfe-rpc-runtime-api",
+ "parity-scale-codec 3.1.5",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+ "tracing",
+ "tracing-core",
+]
+
+[[package]]
+name = "pallet-vfe-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec 3.1.5",
+ "sp-api",
  "sp-std",
 ]
 
@@ -4911,6 +4935,7 @@ dependencies = [
  "jsonrpsee",
  "node-rpc",
  "pallet-transaction-payment-rpc",
+ "pallet-vfe-rpc",
  "polket-runtime",
  "sc-basic-authorship",
  "sc-chain-spec",
@@ -4995,6 +5020,7 @@ dependencies = [
  "pallet-uniques",
  "pallet-utility",
  "pallet-vfe",
+ "pallet-vfe-rpc-runtime-api",
  "parity-scale-codec 3.1.5",
  "polket-primitives",
  "runtime-common",
@@ -5588,6 +5614,7 @@ dependencies = [
  "pallet-identity-extra",
  "pallet-support",
  "pallet-uniques",
+ "pallet-vfe",
  "parity-scale-codec 3.1.5",
  "polket-primitives",
  "scale-info",

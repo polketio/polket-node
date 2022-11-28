@@ -228,8 +228,10 @@ parameter_types! {
 	pub const UnbindFee:u32 = 1;
 	pub const CostUnit: u64 = 100000;
 	pub const EnergyRecoveryDuration: u64 = 8;
+	pub const DailyEarnedResetDuration: u64 = 24;
 	pub const LevelUpCostFactor: u64 = 7;
 	pub const InitEnergy: u16 = 8;
+	pub const InitEarningCap: u16 = 500;
 	pub const EnergyRecoveryRatio: Permill = Permill::from_percent(25); //25%
 }
 
@@ -248,8 +250,10 @@ impl Config for Test {
 	type UnbindFee = UnbindFee;
 	type CostUnit = CostUnit;
 	type EnergyRecoveryDuration = EnergyRecoveryDuration;
+	type DailyEarnedResetDuration = DailyEarnedResetDuration;
 	type LevelUpCostFactor = LevelUpCostFactor;
 	type InitEnergy = InitEnergy;
+	type InitEarningCap = InitEarningCap;
 	type EnergyRecoveryRatio = EnergyRecoveryRatio;
 
 }

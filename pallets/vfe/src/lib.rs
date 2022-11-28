@@ -23,7 +23,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungibles::{Inspect as MultiAssets, Mutate as MultiAssetsMutate, Transfer},
-		tokens::nonfungibles::{Create, Inspect, Mutate},
+		tokens::nonfungibles::{Create, Inspect, Mutate, InspectEnumerable},
 		Randomness,
 	},
 	transactional, PalletId,
@@ -31,15 +31,11 @@ use frame_support::{
 
 use frame_system::{pallet_prelude::*, RawOrigin};
 
-use bitcoin_hashes::{sha256 as Sha256, Hash as OtherHash};
+use bitcoin_hashes::Hash as OtherHash;
 use frame_support::traits::fungibles;
-use p256::{
-	ecdsa::{
-		signature::{Signature as Sig, Signer, Verifier},
-		Signature, SigningKey, VerifyingKey,
-	},
-	elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
-	NistP256,
+use p256::ecdsa::{
+	signature::{Signature as Sig, Verifier},
+	Signature, VerifyingKey,
 };
 pub use pallet::*;
 use pallet_support::uniqueid::UniqueIdGenerator;
@@ -58,7 +54,8 @@ use sp_std::{
 	ops::Mul,
 	vec::Vec,
 };
-use types::*;
+pub use types::*;
+pub use impl_nonfungibles::*;
 
 #[cfg(test)]
 mod mock;
@@ -66,13 +63,13 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod impl_nonfungibles;
-mod types;
+pub mod impl_nonfungibles;
+pub mod types;
 
 type BalanceOf<T> =
-	<<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::Balance;
+<<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::Balance;
 type AssetIdOf<T> =
-	<<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::AssetId;
+<<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::AssetId;
 type VFEBrandApprovalOf<T> = VFEBrandApprove<AssetIdOf<T>, BalanceOf<T>>;
 
 #[frame_support::pallet]
@@ -86,21 +83,21 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		///  Who can create VFE class and register producer
-		type BrandOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
+		type BrandOrigin: EnsureOrigin<Self::Origin, Success=Self::AccountId>;
 
 		/// Who can register device and mint VFEs
-		type ProducerOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
+		type ProducerOrigin: EnsureOrigin<Self::Origin, Success=Self::AccountId>;
 
 		/// Multiple asset types
 		type Currencies: MultiAssets<Self::AccountId>
-			+ Transfer<Self::AccountId>
-			+ MultiAssetsMutate<Self::AccountId>;
+		+ Transfer<Self::AccountId>
+		+ MultiAssetsMutate<Self::AccountId>;
 
 		/// ObjectId linked Data
 		type ObjectId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
-		type UniqueId: UniqueIdGenerator<ObjectId = Self::ObjectId>;
+		type UniqueId: UniqueIdGenerator<ObjectId=Self::ObjectId>;
 
 		/// The pallet id
 		#[pallet::constant]
@@ -132,6 +129,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type EnergyRecoveryDuration: Get<Self::BlockNumber>;
 
+		/// How long to reset user daily earned value
+		#[pallet::constant]
+		type DailyEarnedResetDuration: Get<Self::BlockNumber>;
+
 		/// level up cost factor
 		#[pallet::constant]
 		type LevelUpCostFactor: Get<BalanceOf<Self>>;
@@ -139,6 +140,10 @@ pub mod pallet {
 		/// init energy when new user created
 		#[pallet::constant]
 		type InitEnergy: Get<u16>;
+
+		/// init earning cap of daily when new user created
+		#[pallet::constant]
+		type InitEarningCap: Get<u16>;
 
 		/// ratio of each energy recovery
 		#[pallet::constant]
@@ -162,9 +167,13 @@ pub mod pallet {
 	pub type LastEnergyRecovery<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn last_daily_earned_reset)]
+	pub type LastDailyEarnedReset<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn producers)]
 	pub(crate) type Producers<T: Config> =
-		StorageMap<_, Twox64Concat, T::ObjectId, Producer<T::ObjectId, T::AccountId>, OptionQuery>;
+	StorageMap<_, Twox64Concat, T::ObjectId, Producer<T::ObjectId, T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn vfe_brands)]
@@ -182,7 +191,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		User<T::AccountId, T::BlockNumber>,
+		User<T::AccountId, T::BlockNumber, BalanceOf<T>>,
 		OptionQuery,
 	>;
 
@@ -208,17 +217,17 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	#[pallet::storage]
-	#[pallet::getter(fn vfe_bind_devices)]
-	pub(crate) type VFEBindDevices<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::CollectionId,
-		Twox64Concat,
-		T::ItemId,
-		DeviceKey,
-		OptionQuery,
-	>;
+	// #[pallet::storage]
+	// #[pallet::getter(fn vfe_bind_devices)]
+	// pub(crate) type VFEBindDevices<T: Config> = StorageDoubleMap<
+	// 	_,
+	// 	Twox64Concat,
+	// 	T::CollectionId,
+	// 	Twox64Concat,
+	// 	T::ItemId,
+	// 	DeviceKey,
+	// 	OptionQuery,
+	// >;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_vfe_approvals)]
@@ -302,6 +311,9 @@ pub mod pallet {
 		/// user energy restored. \[ owner, restored_amount \]
 		UserEnergyRestored(T::AccountId, u16),
 
+		/// user daily earned reset. \[ owner \]
+		UserDailyEarnedReset(T::AccountId),
+
 		Sha256Test(Vec<u8>),
 
 		/// VerifyTest. \[ pubkey, msg, sha256msg, signature, isValid  \]
@@ -315,6 +327,9 @@ pub mod pallet {
 
 		/// Global energy recovery has occurred \[block_number\]
 		GlobalEnergyRecoveryOccurred(T::BlockNumber),
+
+		/// Global daily reset has occurred \[block_number\]
+		GlobalDailyEarnedResetOccurred(T::BlockNumber),
 
 		/// the VFE has been level up. \[ class, instance, number of level up, leve up cost\]
 		VFELevelUp(T::CollectionId, T::ItemId, u16, BalanceOf<T>),
@@ -374,29 +389,38 @@ pub mod pallet {
 		IncentiveTokenNotSet,
 		/// Energy is exhausted.
 		EnergyExhausted,
+		/// earned cap
+		EarnedCap,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: T::BlockNumber) -> Weight {
-			// Check to see if we should spend some funds!
+			let mut weight: Weight = 0;
 			if (n % T::EnergyRecoveryDuration::get()).is_zero() {
 				//update
 				LastEnergyRecovery::<T>::put(n);
 				Self::deposit_event(Event::GlobalEnergyRecoveryOccurred(n));
-				T::DbWeight::get().writes(1)
-			} else {
-				0
+				weight = weight + T::DbWeight::get().writes(1);
 			}
+
+			if (n % T::DailyEarnedResetDuration::get()).is_zero() {
+				//update
+				LastDailyEarnedReset::<T>::put(n);
+				Self::deposit_event(Event::GlobalDailyEarnedResetOccurred(n));
+				weight = weight + T::DbWeight::get().writes(1);
+			}
+
+			weight
 		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
-	where
-		T::CollectionId: From<T::ObjectId>,
-		T::ItemId: From<T::ObjectId>,
-		T::ObjectId: From<T::CollectionId>,
+		where
+			T::CollectionId: From<T::ObjectId>,
+			T::ItemId: From<T::ObjectId>,
+			T::ObjectId: From<T::CollectionId>,
 	{
 		/// set incentive token
 		/// - origin AccountId sudo key can do
@@ -619,20 +643,20 @@ pub mod pallet {
 		/// - origin AccountId
 		/// - puk   BoundedVec<u8, T::StringLimit>
 		/// - producer_id ProducerId
-		/// - class CollectionId
+		/// - brand_id CollectionId
 		#[pallet::weight(10_000)]
 		#[transactional]
 		pub fn register_device(
 			origin: OriginFor<T>,
 			puk: DeviceKey,
 			producer_id: T::ObjectId,
-			class: T::CollectionId,
+			brand_id: T::CollectionId,
 		) -> DispatchResult {
 			let who = T::ProducerOrigin::ensure_origin(origin.clone())?;
 			ensure!(!Devices::<T>::contains_key(puk), Error::<T>::DeviceExisted);
 			let producer = Self::check_producer(who.clone(), producer_id)?;
 			let vfe_brand =
-				VFEBrands::<T>::get(class.clone()).ok_or(Error::<T>::VFEBrandNotFound)?;
+				VFEBrands::<T>::get(brand_id.clone()).ok_or(Error::<T>::VFEBrandNotFound)?;
 
 			// Check if the collection is authorized to the producer
 			VFEApprovals::<T>::try_mutate(
@@ -649,7 +673,7 @@ pub mod pallet {
 
 					// mint_cost handle transfer
 					if let Some((mint_asset_id, mint_price)) = approved.mint_cost {
-						// transfer tokens to NFT class owner
+						// transfer tokens to NFT brand_id owner
 						<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
 							mint_asset_id,
 							&who,
@@ -672,7 +696,7 @@ pub mod pallet {
 					Devices::<T>::insert(
 						puk.clone(),
 						Device {
-							brand_id: class,
+							brand_id,
 							item_id: None,
 							producer_id: producer.id.clone(),
 							status: DeviceStatus::Registered,
@@ -686,7 +710,7 @@ pub mod pallet {
 
 					*maybe_approved = Some(approved);
 
-					Self::deposit_event(Event::DeviceRegistered(who, producer_id, puk, class));
+					Self::deposit_event(Event::DeviceRegistered(who, producer_id, puk, brand_id));
 
 					Ok(())
 				},
@@ -760,16 +784,22 @@ pub mod pallet {
 			// In this case, if the device is
 			if device.status == DeviceStatus::Registered {
 				// create the new instance
-				let item = Self::create_vfe(&device.brand_id, &device.producer_id, &from)?;
-
-				device.item_id = Some(item);
+				let mut vfe = Self::create_vfe(&device.brand_id, &device.producer_id, &from)?;
+				vfe.device_key = Some(puk);
+				device.item_id = Some(vfe.item_id);
 				device.status = DeviceStatus::Activated;
 				Devices::<T>::insert(puk, device);
 
-				//vfe bind device pubkey
-				VFEBindDevices::<T>::insert(&device.brand_id, &item, puk);
-
-				Self::deposit_event(Event::DeviceBound(from, puk.clone(), device.brand_id, item));
+				// save vfe detail
+				VFEDetails::<T>::insert(&vfe.brand_id, &vfe.item_id, vfe.clone());
+				// VFEBindDevices::<T>::insert(&device.brand_id, &item, puk);
+				Self::deposit_event(Event::VFECreated(from.clone(), vfe));
+				Self::deposit_event(Event::DeviceBound(
+					from,
+					puk.clone(),
+					device.brand_id,
+					vfe.item_id,
+				));
 			} else {
 				ensure!(device.item_id.is_none(), Error::<T>::DeviceBond);
 
@@ -792,8 +822,9 @@ pub mod pallet {
 			item_id: T::ItemId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
-			let device_pk =
-				VFEBindDevices::<T>::get(&brand_id, &item_id).ok_or(Error::<T>::DeviceNotBond)?;
+			let mut vfe =
+				VFEDetails::<T>::get(&brand_id, &item_id).ok_or(Error::<T>::VFENotExist)?;
+			let device_pk = vfe.device_key.ok_or(Error::<T>::DeviceNotBond)?;
 			let mut device = Devices::<T>::get(device_pk).ok_or(Error::<T>::DeviceNotExisted)?;
 			// check vfe owner
 			let vfe_owner = Self::owner(&brand_id, &item_id).ok_or(Error::<T>::VFENotExist)?;
@@ -801,8 +832,10 @@ pub mod pallet {
 			//todo: pay fee to unbind device
 
 			device.item_id = None;
+			vfe.device_key = None;
 			Devices::<T>::insert(device_pk, &device);
-			VFEBindDevices::<T>::remove(&brand_id, &item_id);
+			VFEDetails::<T>::insert(&brand_id, &item_id, vfe);
+			// VFEBindDevices::<T>::remove(&brand_id, &item_id);
 
 			Self::deposit_event(Event::DeviceUnbound(who, device_pk, device.brand_id, item_id));
 
@@ -893,43 +926,14 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// restore energy
+		/// user restore energy and reset daily earned.
 		/// - origin AccountId
 		#[pallet::weight(10_000)]
 		#[transactional]
-		pub fn restore_energy(origin: OriginFor<T>) -> DispatchResult {
+		pub fn user_restore(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
-			let mut user = Users::<T>::get(&who).ok_or(Error::<T>::UserNotExist)?;
-			ensure!(user.energy < user.energy_total, Error::<T>::UserEnergyIsFull);
-
-			let user_last_restore_block = user.last_restore_block;
-			// let current_height = frame_system::Pallet::<T>::block_number();
-			// let blocks = current_height - last_restore_block;
-			let duration = T::EnergyRecoveryDuration::get();
-			let last_energy_recovery = LastEnergyRecovery::<T>::get();
-
-			// let user_energy_recovery_times =
-			// 	blocks.checked_div(&duration).ok_or(Error::<T>::ValueOverflow)?;
-			// let user_last_global_energy_recovery =
-			// 	user_energy_recovery_times.saturating_mul(duration);
-			let recoverable_times = last_energy_recovery.saturating_sub(user_last_restore_block);
-			let recoverable_times =
-				recoverable_times.checked_div(&duration).ok_or(Error::<T>::ValueOverflow)?;
-			let average_recovery: u16 =
-				T::EnergyRecoveryRatio::get().mul(user.energy_total as u32).saturated_into();
-			let recoverable_energy = recoverable_times.saturated_into::<u16>() * average_recovery;
-			let max_recovery_energy = recoverable_energy + user.energy;
-			let restored_amount = if max_recovery_energy > user.energy_total {
-				let restored_amount = user.energy_total - user.energy;
-				user.energy = user.energy_total;
-				restored_amount
-			} else {
-				user.energy = max_recovery_energy;
-				recoverable_energy
-			};
-			user.last_restore_block = last_energy_recovery;
-			Users::<T>::insert(&who, user);
-			Self::deposit_event(Event::UserEnergyRestored(who, restored_amount));
+			Self::_restore_energy(&who)?;
+			Self::_reset_daily_earned(&who)?;
 			Ok(())
 		}
 
@@ -952,7 +956,7 @@ pub mod pallet {
 				let mut vfe = maybe_vfe.take().ok_or(Error::<T>::VFENotExist)?;
 				let vfe_owner = Self::owner(&brand_id, &item_id).ok_or(Error::<T>::VFENotExist)?;
 				ensure!(vfe_owner == who, Error::<T>::OperationIsNotAllowed);
-				let user = Users::<T>::get(&who).ok_or(Error::<T>::UserNotExist)?;
+				let mut user = Users::<T>::get(&who).ok_or(Error::<T>::UserNotExist)?;
 
 				// Calculating level up fees for VFE
 				let t = T::LevelUpCostFactor::get();
@@ -979,11 +983,22 @@ pub mod pallet {
 				vfe.available_points = vfe.available_points + level_up * g;
 				*maybe_vfe = Some(vfe);
 
+				// increase the user's energy cap and earing cap of daily
+				// check if user current energy_total is less than new energy_total
+				let new_energy_cap = Self::level_into_energy_cap(vfe.level);
+				let new_earning_cap = Self::level_into_earning_cap(vfe.level);
+				if new_energy_cap > user.energy_total {
+					user.energy_total = new_energy_cap;
+				}
+				if new_earning_cap > user.earning_cap {
+					user.earning_cap = new_earning_cap;
+				}
+				Users::<T>::insert(&who, user);
+
 				// emit event
 				Self::deposit_event(Event::VFELevelUp(brand_id, item_id, level_up, level_cost));
 
 				//todo: VFE level up requires a cooldown.
-				//todo: How to increase the user's energy limit?
 
 				Ok(())
 			})
@@ -1036,14 +1051,14 @@ pub mod pallet {
 		#[pallet::weight(< T as pallet_uniques::Config < T::UniquesInstance >>::WeightInfo::transfer())]
 		pub fn transfer(
 			origin: OriginFor<T>,
-			class: T::CollectionId,
-			instance: T::ItemId,
+			brand_id: T::CollectionId,
+			item_id: T::ItemId,
 			dest: <T::Lookup as StaticLookup>::Source,
 		) -> DispatchResult {
 			let from = ensure_signed(origin.clone())?;
 			let to = T::Lookup::lookup(dest.clone())?;
 
-			let vfe = VFEDetails::<T>::get(class, instance).ok_or(Error::<T>::VFENotExist)?;
+			let vfe = VFEDetails::<T>::get(brand_id, item_id).ok_or(Error::<T>::VFENotExist)?;
 
 			ensure!(vfe.remaining_battery == 100, Error::<T>::VFENotFullyCharged);
 
@@ -1051,122 +1066,42 @@ pub mod pallet {
 
 			pallet_uniques::Pallet::<T, T::UniquesInstance>::transfer(
 				origin,
-				class.clone(),
-				instance.clone(),
+				brand_id.clone(),
+				item_id.clone(),
 				dest,
 			)?;
-			Self::deposit_event(Event::Transferred(class, instance, from, to));
-			Ok(())
-		}
-
-		/// sha256 for test
-		#[pallet::weight(10_000)]
-		#[transactional]
-		pub fn sha256_test(_origin: OriginFor<T>, text: Vec<u8>) -> DispatchResult {
-			let final_msg = Sha256::Hash::hash(&text).to_vec();
-
-			Self::deposit_event(Event::Sha256Test(final_msg));
-
-			Ok(())
-		}
-
-		/// sign for test
-		#[pallet::weight(10_000)]
-		#[transactional]
-		pub fn sign_test(
-			_origin: OriginFor<T>,
-			private_key: Vec<u8>,
-			msg: Vec<u8>,
-		) -> DispatchResult {
-			let final_msg = Sha256::Hash::hash(&msg).to_vec();
-
-			let signing_key = SigningKey::from_bytes(&private_key[..])
-				.map_err(|_| Error::<T>::DeviceSignatureInvalid)?; //
-
-			let signature = signing_key.sign(&msg[..]);
-
-			let verifying_key = signing_key.verifying_key(); // Serialize with `::to_encoded_point()`
-			let public_key: PublicKey<NistP256> = verifying_key.into();
-			let encoded_point = public_key.to_encoded_point(true);
-
-			// privatekey, pubkey, msg, sha256msg, signature
-
-			Self::deposit_event(Event::SignTest(
-				private_key,
-				encoded_point.as_bytes().to_vec(),
-				msg,
-				final_msg,
-				signature.as_bytes().to_vec(),
-			));
-
-			Ok(())
-		}
-
-		/// verify for this
-		#[pallet::weight(10_000)]
-		#[transactional]
-		pub fn verify_test(
-			_origin: OriginFor<T>,
-			req_sig: Vec<u8>,
-			public_key: Vec<u8>,
-			msg: Vec<u8>,
-		) -> DispatchResult {
-			let final_msg = Sha256::Hash::hash(&msg).to_vec();
-
-			let target = &req_sig[..];
-			let sig =
-				Signature::from_bytes(target).map_err(|_| Error::<T>::DeviceSignatureInvalid)?;
-
-			let pk = &public_key[..];
-			let verify_key =
-				VerifyingKey::from_sec1_bytes(pk).map_err(|_| Error::<T>::PublicKeyEncodeError)?;
-
-			// check the validity of the signature
-			// let final_msg: &[u8] = &msg.as_ref();
-			let flag = verify_key.verify(&msg[..], &sig).is_ok();
-
-			ensure!(flag, Error::<T>::DeviceSignatureInvalid);
-
-			//  pubkey, msg, sha256msg, signature, isValid
-			Self::deposit_event(Event::VerifyTest(public_key, msg, final_msg, req_sig, flag));
-
+			Self::deposit_event(Event::Transferred(brand_id, item_id, from, to));
 			Ok(())
 		}
 	}
 }
 
 impl<T: Config> Pallet<T>
-where
-	T::CollectionId: From<T::ObjectId>,
-	T::ItemId: From<T::ObjectId>,
-	T::ObjectId: From<T::CollectionId>,
+	where
+		T::CollectionId: From<T::ObjectId>,
+		T::ItemId: From<T::ObjectId>,
+		T::ObjectId: From<T::CollectionId>,
 {
 	fn max_generate_random() -> u32 {
 		1000
 	}
 
 	pub fn do_mint(
-		class_id: T::CollectionId,
-		instance_id: T::ItemId,
+		brand_id: T::CollectionId,
+		item_id: T::ItemId,
 		owner: T::AccountId,
 	) -> DispatchResult {
-		pallet_uniques::Pallet::<T, T::UniquesInstance>::mint_into(
-			&class_id,
-			&instance_id,
-			&owner,
-		)?;
-		Self::deposit_event(Event::Issued(class_id, instance_id, owner));
+		pallet_uniques::Pallet::<T, T::UniquesInstance>::mint_into(&brand_id, &item_id, &owner)?;
+		Self::deposit_event(Event::Issued(brand_id, item_id, owner));
 		Ok(())
 	}
 
-	pub fn do_burn(class_id: T::CollectionId, instance_id: T::ItemId) -> DispatchResult {
-		let owner = Self::owner(&class_id, &instance_id).ok_or(Error::<T>::ItemNotFound)?;
+	pub fn do_burn(brand_id: T::CollectionId, item_id: T::ItemId) -> DispatchResult {
+		let owner = Self::owner(&brand_id, &item_id).ok_or(Error::<T>::ItemNotFound)?;
 		<pallet_uniques::Pallet<T, T::UniquesInstance> as Mutate<T::AccountId>>::burn(
-			&class_id,
-			&instance_id,
-			None,
+			&brand_id, &item_id, None,
 		)?;
-		Self::deposit_event(Event::Burned(class_id, instance_id, owner));
+		Self::deposit_event(Event::Burned(brand_id, item_id, owner));
 		Ok(())
 	}
 
@@ -1196,7 +1131,7 @@ where
 		// Best effort attempt to remove bias from modulus operator.
 		for _ in 1..Self::max_generate_random() {
 			if random_number < u32::MAX - u32::MAX % (total as u32) {
-				break
+				break;
 			}
 
 			let (random_number2, _, _) = Self::generate_random_number();
@@ -1212,7 +1147,7 @@ where
 		puk: DeviceKey,
 		signature: &[u8],
 	) -> Result<bool, DispatchError> {
-		let verify_key = VerifyingKey::from_sec1_bytes(&puk[..])
+		let verify_key = VerifyingKey::from_sec1_bytes(puk.as_ref())
 			.map_err(|_| Error::<T>::PublicKeyEncodeError)?;
 
 		let sig =
@@ -1228,7 +1163,7 @@ where
 		// check the validity of the signature
 		let flag = verify_key.verify(&msg, &sig).is_ok();
 
-		return Ok(flag)
+		return Ok(flag);
 	}
 
 	// check the device's public key.
@@ -1281,9 +1216,8 @@ where
 		let target = &req_sig[..];
 		let sig = Signature::from_bytes(target).map_err(|_| Error::<T>::DeviceSignatureInvalid)?;
 
-		let pk = &puk[..];
 		let verify_key =
-			VerifyingKey::from_sec1_bytes(pk).map_err(|_| Error::<T>::PublicKeyEncodeError)?;
+			VerifyingKey::from_sec1_bytes(puk.as_ref()).map_err(|_| Error::<T>::PublicKeyEncodeError)?;
 
 		// check the validity of the signature
 		let final_msg: &[u8] = &msg.as_ref();
@@ -1319,6 +1253,9 @@ where
 				let mut user = Users::<T>::get(account.clone()).ok_or(Error::<T>::UserNotExist)?;
 
 				ensure!(user.energy > 0, Error::<T>::EnergyExhausted);
+
+				//todo: check if earned cap
+				ensure!(user.earned < user.earning_cap, Error::<T>::EnergyExhausted);
 
 				// Power consumption = training-duration / training_unit_duration
 				let mut power_used =
@@ -1357,6 +1294,16 @@ where
 				let cost_unit = T::CostUnit::get();
 				let final_award = BalanceOf::<T>::from(training_volume).saturating_mul(cost_unit);
 
+				//save user earned
+				let earned = final_award.saturating_add(user.earned);
+				let actual_award = if earned > user.earning_cap {
+					user.earned = user.earning_cap;
+					user.earning_cap.saturating_sub(user.earned)
+				} else {
+					user.earned = earned;
+					final_award
+				};
+
 				// update the electric with user and vfe and device.
 				device.timestamp = training_report.timestamp;
 				Devices::<T>::insert(device.pk, device);
@@ -1365,7 +1312,7 @@ where
 
 				let reward_asset_id =
 					IncentiveToken::<T>::get().ok_or(Error::<T>::IncentiveTokenNotSet)?;
-				T::Currencies::mint_into(reward_asset_id, &account.clone(), final_award.clone())?;
+				T::Currencies::mint_into(reward_asset_id, &account.clone(), actual_award.clone())?;
 
 				Self::deposit_event(Event::TrainingReportsAndRewards(
 					account,
@@ -1377,11 +1324,11 @@ where
 					training_report.total_jump_rope_count,
 					power_used,
 					reward_asset_id,
-					final_award,
+					actual_award,
 				));
 
 				Ok(())
-			},
+			}
 			SportType::Run => Err(Error::<T>::ValueInvalid)?,
 			SportType::Bicycle => Err(Error::<T>::ValueInvalid)?,
 		}
@@ -1407,10 +1354,13 @@ where
 		if !Users::<T>::contains_key(account_id.clone()) {
 			let user = User {
 				owner: account_id.clone(),
-				energy_total: T::InitEnergy::get(),
-				energy: T::InitEnergy::get(),
+				energy_total: Self::level_into_energy_cap(0),
+				energy: Self::level_into_energy_cap(0),
 				create_block: block_number,
 				last_restore_block: T::BlockNumber::default(),
+				last_earned_reset_block: T::BlockNumber::default(),
+				earning_cap: Self::level_into_earning_cap(0),
+				earned: Zero::zero(),
 			};
 
 			Users::<T>::insert(account_id, user);
@@ -1419,11 +1369,11 @@ where
 
 	// create VFE
 	pub fn create_vfe(
-		class_id: &T::CollectionId,
+		brand_id: &T::CollectionId,
 		producer_id: &T::ObjectId,
 		owner: &T::AccountId,
-	) -> Result<T::ItemId, DispatchError> {
-		let vfe_brand = VFEBrands::<T>::get(class_id).ok_or(Error::<T>::VFEBrandNotFound)?;
+	) -> Result<VFEDetail<T::CollectionId, T::ItemId, T::Hash, T::BlockNumber>, DispatchError> {
+		let vfe_brand = VFEBrands::<T>::get(brand_id).ok_or(Error::<T>::VFEBrandNotFound)?;
 		let rarity = vfe_brand.rarity;
 
 		let (min, max) = rarity.base_range_of_ability();
@@ -1434,13 +1384,13 @@ where
 		let (_, gene, _) = Self::generate_random_number();
 
 		// approve producer to mint new vfe
-		let item_id = Self::do_mint_approved(class_id.to_owned(), producer_id, &owner)?;
+		let item_id = Self::do_mint_approved(brand_id.to_owned(), producer_id, &owner)?;
 
 		let block_number = frame_system::Pallet::<T>::block_number();
 		let base_ability = VFEAbility { efficiency, skill, luck, durable };
 		let vfe = VFEDetail {
-			class_id: class_id.to_owned(),
-			instance_id: item_id.clone(),
+			brand_id: brand_id.to_owned(),
+			item_id: item_id.clone(),
 			base_ability: base_ability.clone(),
 			current_ability: base_ability,
 			rarity,
@@ -1450,14 +1400,10 @@ where
 			last_block: block_number,
 			is_upgrading: false,
 			available_points: 0,
+			device_key: None,
 		};
 
-		// save vfe detail
-		VFEDetails::<T>::insert(&class_id, &item_id, vfe.clone());
-
-		Self::deposit_event(Event::VFECreated(owner.to_owned(), vfe));
-
-		Ok(item_id)
+		Ok(vfe)
 	}
 
 	pub fn do_approve_mint(
@@ -1489,7 +1435,7 @@ where
 						activated: 0,
 						registered: 0,
 					}
-				},
+				}
 			};
 
 			if mint_cost != None {
@@ -1513,6 +1459,7 @@ where
 		})
 	}
 
+	// approve to mint a new instance
 	fn do_mint_approved(
 		vfe_brand_id: T::CollectionId,
 		producer_id: &T::ObjectId,
@@ -1562,8 +1509,76 @@ where
 		)
 	}
 
-	// level into energy
-	// pub fn level_into_energy(level: u16) -> u16 {
-	// 	(level / 2) * 4 + 8
-	// }
+	// restore user energy
+	fn _restore_energy(who: &T::AccountId) -> DispatchResult {
+		let mut user = Users::<T>::get(&who).ok_or(Error::<T>::UserNotExist)?;
+
+		if user.energy < user.energy_total {
+			let user_last_restore_block = user.last_restore_block;
+			let duration = T::EnergyRecoveryDuration::get();
+			let last_energy_recovery = LastEnergyRecovery::<T>::get();
+			let recoverable_times = last_energy_recovery.saturating_sub(user_last_restore_block);
+			let recoverable_times =
+				recoverable_times.checked_div(&duration).ok_or(Error::<T>::ValueOverflow)?;
+			let average_recovery: u16 =
+				T::EnergyRecoveryRatio::get().mul(user.energy_total as u32).saturated_into();
+			let recoverable_energy = recoverable_times.saturated_into::<u16>() * average_recovery;
+			let max_recovery_energy = recoverable_energy + user.energy;
+			let restored_amount = if max_recovery_energy > user.energy_total {
+				let restored_amount = user.energy_total - user.energy;
+				user.energy = user.energy_total;
+				restored_amount
+			} else {
+				user.energy = max_recovery_energy;
+				recoverable_energy
+			};
+			user.last_restore_block = last_energy_recovery;
+
+			//todo: reset user earned
+
+			Users::<T>::insert(&who, user);
+			Self::deposit_event(Event::UserEnergyRestored(who.to_owned(), restored_amount));
+		}
+
+		Ok(())
+	}
+
+	// reset user daily earned
+	fn _reset_daily_earned(who: &T::AccountId) -> DispatchResult {
+		let mut user = Users::<T>::get(&who).ok_or(Error::<T>::UserNotExist)?;
+
+		let user_last_earned_reset_block = user.last_earned_reset_block;
+		let last_daily_earned_reset = LastDailyEarnedReset::<T>::get();
+		if user_last_earned_reset_block < last_daily_earned_reset {
+			user.earned = Zero::zero();
+			user.last_earned_reset_block = last_daily_earned_reset;
+			Users::<T>::insert(&who, user);
+			Self::deposit_event(Event::UserDailyEarnedReset(who.to_owned()));
+		}
+		Ok(())
+	}
+
+	pub fn get_vfe_details_by_address(account: T::AccountId, brand_id: T::CollectionId) -> Vec<VFEDetail<T::CollectionId, T::ItemId, T::Hash, T::BlockNumber>> {
+		let items = Self::owned_in_collection(&brand_id, &account);
+		let mut values = Vec::new();
+		items.for_each(|e| {
+			if let Some(vfe) = VFEDetails::<T>::get(&brand_id, &e) {
+				values.push(vfe);
+			};
+		});
+		values
+	}
+
+	// level into energy cap of daily
+	pub fn level_into_energy_cap(level: u16) -> u16 {
+		// increase energy per 2 level
+		(level / 2) * T::InitEnergy::get() / 2 + T::InitEnergy::get()
+	}
+
+	// level into earning cap of daily
+	pub fn level_into_earning_cap(level: u16) -> BalanceOf<T> {
+		let base_cap = T::InitEarningCap::get();
+		let cap = base_cap * level + base_cap;
+		BalanceOf::<T>::saturated_from(cap).saturating_mul(T::CostUnit::get())
+	}
 }

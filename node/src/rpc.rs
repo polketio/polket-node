@@ -7,7 +7,9 @@
 
 use std::sync::Arc;
 
-use polket_runtime::{opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
+use polket_runtime::{
+	opaque::Block, AccountId, Balance, BlockNumber, Hash, Index, ObjectId, VFEDetail,
+};
 use sc_client_api::AuxStore;
 use sc_consensus_babe::{BabeApi, Epoch};
 use sc_finality_grandpa::FinalityProofProvider;
@@ -18,6 +20,9 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_keystore::SyncCryptoStorePtr;
+
+//custom rpc
+use pallet_vfe_rpc::{VfeApiServer, Vfe};
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
@@ -77,6 +82,7 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
+	C::Api: pallet_vfe_rpc::VFERuntimeApi<Block, AccountId, ObjectId, VFEDetail>,
 	P: TransactionPool + Sync + Send + 'static,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -126,6 +132,9 @@ where
 		)
 		.into_rpc(),
 	)?;
+
+	//custom rpc
+	io.merge(Vfe::new(client.clone()).into_rpc())?;
 
 	Ok(io)
 }

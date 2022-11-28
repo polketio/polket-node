@@ -2,13 +2,16 @@
 // Copyright (C) 2021-2022 Polket.
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::TypeInfo, RuntimeDebug};
 use sp_runtime::{traits::Get, BoundedVec};
 use sp_std::vec::Vec;
 
 /// public key of device
-pub type DeviceKey = [u8; 33];
+pub type DeviceKey = sp_core::ecdsa::Public;
 
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum DeviceStatus {
@@ -74,13 +77,15 @@ impl SportType {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(StringLimit))]
-pub struct User<Account, BlockNumber> {
+pub struct User<Account, BlockNumber, Balance> {
 	pub owner: Account,
 	pub energy_total: u16,
 	pub energy: u16,
 	pub create_block: BlockNumber,
 	pub last_restore_block: BlockNumber,
+	pub last_earned_reset_block: BlockNumber,
+	pub earning_cap: Balance,
+	pub earned: Balance,
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
@@ -109,10 +114,10 @@ pub struct VFEBrandApprove<AssetId, Balance> {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-pub struct Device<Class, Instance, ObjectId, AssetId, Balance> {
+pub struct Device<CollectionId, ItemId, ObjectId, AssetId, Balance> {
 	pub sport_type: SportType,
-	pub brand_id: Class,
-	pub item_id: Option<Instance>,
+	pub brand_id: CollectionId,
+	pub item_id: Option<ItemId>,
 	pub producer_id: ObjectId,
 	pub status: DeviceStatus,
 	pub pk: DeviceKey,
@@ -124,6 +129,7 @@ pub struct Device<Class, Instance, ObjectId, AssetId, Balance> {
 #[derive(
 	Encode, Decode, Default, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen,
 )]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct VFEAbility {
 	pub efficiency: u16,
 	pub skill: u16,
@@ -134,9 +140,10 @@ pub struct VFEAbility {
 #[derive(
 	Encode, Decode, Copy, Clone, Default, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen,
 )]
-pub struct VFEDetail<Class, Instance, Hash, BlockNumber> {
-	pub class_id: Class,
-	pub instance_id: Instance,
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+pub struct VFEDetail<CollectionId, ItemId, Hash, BlockNumber> {
+	pub brand_id: CollectionId,
+	pub item_id: ItemId,
 	pub base_ability: VFEAbility,
 	pub current_ability: VFEAbility,
 	pub rarity: VFERarity,
@@ -146,15 +153,11 @@ pub struct VFEDetail<Class, Instance, Hash, BlockNumber> {
 	pub is_upgrading: bool,
 	pub last_block: BlockNumber,
 	pub available_points: u16,
-}
-
-#[derive(Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Item<Class, Instance> {
-	pub class_id: Class,
-	pub instance_id: Instance,
+	pub device_key: Option<DeviceKey>,
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum VFERarity {
 	/// Common
 	Common = 0,
