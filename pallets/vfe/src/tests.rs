@@ -17,6 +17,7 @@ use p256::{
 	elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
 	NistP256,
 };
+use sp_core::crypto::Ss58Codec;
 
 macro_rules! bvec {
 	($( $x:tt )*) => {
@@ -195,10 +196,11 @@ fn register_device_unit_test() {
 		assert_ok!(VFE::approve_mint(Origin::signed(CANDY), 1, 1, 10, Some((0, 10))));
 
 		// register device
-		let bytes =
-			hex::decode("02e3a9257cf457087eeef75f466d3da31318b046ffcce05d104a0505d9799b47c6")
-				.unwrap();
-		let puk: DeviceKey = bytes.try_into().expect("error length");
+		// let bytes =
+		// 	hex::decode("02e3a9257cf457087eeef75f466d3da31318b046ffcce05d104a0505d9799b47c6")
+		// 		.unwrap();
+		let bytes = hex!["02e3a9257cf457087eeef75f466d3da31318b046ffcce05d104a0505d9799b47c6"];
+		let puk: DeviceKey = DeviceKey::from_raw(bytes);
 
 		assert_ok!(VFE::register_device(Origin::signed(ALICE), puk, 1, 1));
 		System::assert_has_event(Event::VFE(crate::Event::DeviceRegistered(ALICE, 1, puk, 1)));
@@ -249,9 +251,10 @@ fn bind_device_unit_test() {
 	new_test_ext().execute_with(|| {
 
 		// device keypair
-		let bytes = hex::decode("0339d3e6e837d675ce77e85d708caf89ddcdbf53c8e510775c9cb9ec06282475a0").unwrap();
-		let puk: DeviceKey = bytes.try_into().expect("error length");
-
+		// let bytes = hex::decode("0339d3e6e837d675ce77e85d708caf89ddcdbf53c8e510775c9cb9ec06282475a0").unwrap();
+		// let puk: DeviceKey = bytes.try_into().expect("error length");
+		let bytes = hex!["0339d3e6e837d675ce77e85d708caf89ddcdbf53c8e510775c9cb9ec06282475a0"];
+		let puk: DeviceKey = DeviceKey::from_raw(bytes);
 
 		// register producer
 		assert_ok!(VFE::producer_register(Origin::signed(ALICE)));
@@ -310,7 +313,7 @@ fn bind_device_unit_test() {
 		assert!(device.item_id.is_none());
 		let vfe = VFEDetails::<Test>::get(1, 1).expect("VFEDetail not exist");
 		assert!(vfe.device_key.is_none());
-		
+
 	});
 }
 
@@ -337,7 +340,7 @@ fn upload_training_report_unit_test() {
 		let report_sig = key.sign(&report_encode);
 		assert_ok!(VFE::upload_training_report(
 			Origin::signed(user.clone()),
-			 pub_key, 
+			 pub_key,
 			 BoundedVec::truncate_from(report_sig.to_vec()),
 			 BoundedVec::truncate_from(report.into()),
 		));
@@ -357,7 +360,7 @@ fn upload_training_report_unit_test() {
 		// can not report same timestamp
 		assert_noop!(VFE::upload_training_report(
 			Origin::signed(user.clone()),
-			 pub_key, 
+			 pub_key,
 			 BoundedVec::truncate_from(report_sig.to_vec()),
 			 BoundedVec::truncate_from(report.into()),
 		), Error::<Test>::ValueInvalid);
@@ -376,8 +379,8 @@ fn upload_training_report_unit_test() {
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
 		assert_ok!(VFE::upload_training_report(
-			Origin::signed(user.clone()), 
-			pub_key, 
+			Origin::signed(user.clone()),
+			pub_key,
 			BoundedVec::truncate_from(report_sig.to_vec()),
 			BoundedVec::truncate_from(report.into()),
 		));
@@ -399,10 +402,10 @@ fn upload_training_report_unit_test() {
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
 
-		// if user no energy, can not report training 
+		// if user no energy, can not report training
 		assert_noop!(VFE::upload_training_report(
 			Origin::signed(user.clone()),
-			 pub_key, 
+			 pub_key,
 			 BoundedVec::truncate_from(report_sig.to_vec()),
 			 BoundedVec::truncate_from(report.into()),
 		), Error::<Test>::EnergyExhausted);
@@ -461,12 +464,12 @@ fn user_restore_unit_test() {
 				};
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
-		assert_ok!(VFE::upload_training_report(Origin::signed(user.clone()), 
+		assert_ok!(VFE::upload_training_report(Origin::signed(user.clone()),
 		pub_key, report_sig.to_vec().try_into().unwrap(), report_encode.try_into().unwrap()));
-		
+
 		//after global energy recovery occurred
 		run_to_block(9);
-		
+
 		assert_ok!(VFE::user_restore(Origin::signed(user.clone())));
 		System::assert_has_event(Event::VFE(crate::Event::UserEnergyRestored(user.clone(), 2)));
 		let user_data = Users::<Test>::get(&user).expect("cannot find user");
@@ -505,7 +508,7 @@ fn restore_power_unit_test() {
 				};
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
-		assert_ok!(VFE::upload_training_report(Origin::signed(user.clone()), 
+		assert_ok!(VFE::upload_training_report(Origin::signed(user.clone()),
 		pub_key, report_sig.to_vec().try_into().unwrap(), report_encode.try_into().unwrap()));
 
 		assert_ok!(VFE::restore_power(Origin::signed(user.clone()), 1, 1, 3));
@@ -535,7 +538,7 @@ fn level_up_unit_test() {
 		let user = DANY;
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
-		
+
 		assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 0), Error::<Test>::ValueInvalid);
 				assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 2, 1), Error::<Test>::VFENotExist);
 		assert_noop!(VFE::level_up(Origin::signed(BOB), 1, 1, 1), Error::<Test>::OperationIsNotAllowed);
@@ -547,7 +550,7 @@ fn level_up_unit_test() {
 		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
 		assert_eq!(vfe.level, 1);
 		assert_eq!(vfe.available_points, 4);
-		
+
 		let user_info = Users::<Test>::get(&user).unwrap();
 		assert_eq!(user_info.energy_total, 8);
 		assert_eq!(user_info.earning_cap, 1000 * 100000);
@@ -575,7 +578,7 @@ fn increase_ability_unit_test() {
 		let user = DANY;
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
-		
+
 		assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 0), Error::<Test>::ValueInvalid);
 				assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 2, 1), Error::<Test>::VFENotExist);
 		assert_noop!(VFE::level_up(Origin::signed(BOB), 1, 1, 1), Error::<Test>::OperationIsNotAllowed);
@@ -611,8 +614,8 @@ fn increase_ability_unit_test() {
 		assert_eq!(vfe.current_ability.skill, origin_vfe.current_ability.skill + add_point.skill);
 		assert_eq!(vfe.current_ability.luck, origin_vfe.current_ability.luck + add_point.luck);
 		assert_eq!(vfe.current_ability.durable, origin_vfe.current_ability.durable + add_point.durable);
-		
-		
+
+
 	});
 }
 
@@ -637,14 +640,34 @@ fn verify_bind_device_message_unit_test() {
 		//13a7c41c6fa23d80f586051c6ccce5eb60192a20
 		println!("ripemd160: {}", hex::encode(account_rip160));
 
-		assert_ok!(VFE::verify_bind_device_message(account_id, nonce, x.to_owned(), sig.as_bytes()), true);
+		assert_ok!(VFE::verify_bind_device_message(account_id, nonce, DeviceKey::from_full(x).unwrap(), sig.as_bytes()), true);
+	});
+}
+
+#[test]
+fn generate_bind_device_message_unit_test() {
+	new_test_ext().execute_with(|| {
+		let (key, pub_key) = generate_device_keypair();
+		let nonce = 1u32;
+		//5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y
+		let account_id = AccountId::from_string("5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y").unwrap();
+		let account_rip160 = Ripemd::Hash::hash(account_id.encode().as_ref());
+		let mut msg: Vec<u8> = Vec::new();
+		msg.extend(nonce.to_le_bytes().to_vec());
+		msg.extend(account_rip160.to_vec());
+		let sig = key.sign(&msg);
+		println!("account_id: {}", hex::encode(account_id.clone()));
+		println!("device key: {}", hex::encode(pub_key));
+		println!("signature: {}", hex::encode(sig));
+
+		assert_ok!(VFE::verify_bind_device_message(account_id, nonce, pub_key, sig.as_bytes()), true);
 	});
 }
 
 
 #[test]
 fn verify_training_data_signature() {
-	
+
 	let x = &hex!["0339d3e6e837d675ce77e85d708caf89ddcdbf53c8e510775c9cb9ec06282475a0"];
 	let pubkey = VerifyingKey::from_sec1_bytes(x).unwrap();
 

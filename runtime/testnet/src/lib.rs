@@ -12,7 +12,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::Encode;
 use frame_election_provider_support::{onchain, SequentialPhragmen};
-use frame_support::PalletId;
+use frame_support::{traits::fungibles::Inspect, PalletId};
 use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -976,6 +976,28 @@ impl_runtime_apis! {
 	impl pallet_vfe_rpc_runtime_api::VfeApi<Block, AccountId, ObjectId, VFEDetail> for Runtime {
 		fn get_vfe_details_by_address(account: AccountId, brand_id: ObjectId) -> Vec<VFEDetail> {
 			VFE::get_vfe_details_by_address(account, brand_id)
+		}
+	}
+
+	impl pallet_currencies_rpc_runtime_api::CurrenciesApi<Block, AccountId, ObjectId, Balance> for Runtime {
+		/// The total amount of issuance in the system.
+		fn total_issuance(asset: ObjectId) -> Balance {
+			Currencies::total_issuance(asset)
+		}
+
+		/// The minimum balance any single account may have.
+		fn minimum_balance(asset: ObjectId) -> Balance {
+			Currencies::minimum_balance(asset)
+		}
+
+		/// Get the `asset` balance of `who`.
+		fn balance(asset: ObjectId, who: AccountId) -> Balance {
+			Currencies::balance(asset, &who)
+		}
+
+		/// Get the maximum amount of `asset` that `who` can withdraw/transfer successfully.
+		fn reducible_balance(asset: ObjectId, who: AccountId, keep_alive: bool) -> Balance {
+			Currencies::reducible_balance(asset, &who, keep_alive)
 		}
 	}
 

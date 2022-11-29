@@ -23,6 +23,7 @@ use sp_keystore::SyncCryptoStorePtr;
 
 //custom rpc
 use pallet_vfe_rpc::{VfeApiServer, Vfe};
+use pallet_currencies_rpc::{CurrenciesApiServer, Currencies};
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
@@ -83,6 +84,7 @@ where
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: pallet_vfe_rpc::VFERuntimeApi<Block, AccountId, ObjectId, VFEDetail>,
+	C::Api: pallet_currencies_rpc::CurrenciesRuntimeApi<Block, AccountId, ObjectId, Balance>,
 	P: TransactionPool + Sync + Send + 'static,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -135,6 +137,7 @@ where
 
 	//custom rpc
 	io.merge(Vfe::new(client.clone()).into_rpc())?;
+	io.merge(Currencies::new(client.clone()).into_rpc())?;
 
 	Ok(io)
 }

@@ -4232,6 +4232,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-currencies-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-currencies-rpc-runtime-api",
+ "parity-scale-codec 3.1.5",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+ "tracing",
+ "tracing-core",
+]
+
+[[package]]
+name = "pallet-currencies-rpc-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec 3.1.5",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-grandpa"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.28#34a0621761c4a333cb2074ff720f7acbfb92dbb8"
@@ -4934,6 +4957,7 @@ dependencies = [
  "jsonrpc-core",
  "jsonrpsee",
  "node-rpc",
+ "pallet-currencies-rpc",
  "pallet-transaction-payment-rpc",
  "pallet-vfe-rpc",
  "polket-runtime",
@@ -5001,6 +5025,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collective",
  "pallet-currencies",
+ "pallet-currencies-rpc-runtime-api",
  "pallet-grandpa",
  "pallet-identity",
  "pallet-identity-extra",

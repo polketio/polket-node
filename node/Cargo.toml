@@ -67,6 +67,7 @@ polket-runtime = {path = '../runtime/testnet', version = '0.1.0'}
 
 # custom rpc
 pallet-vfe-rpc = { path = "../pallets/vfe/rpc"}
+pallet-currencies-rpc = { path = "../pallets/currencies/rpc"}
 
 [features]
 default = []
