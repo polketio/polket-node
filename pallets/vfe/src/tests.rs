@@ -6,18 +6,18 @@ use super::*;
 use crate::mock::{Event, *};
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
-use rand_core::OsRng;
-use sp_std::convert::TryInto;
-use sha2::Digest;
 use p256::{
 	ecdsa::{
-		signature::{Signature as Sig, Verifier, Signer},
+		signature::{Signature as Sig, Signer, Verifier},
 		Signature, SigningKey, VerifyingKey,
 	},
 	elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
 	NistP256,
 };
+use rand_core::OsRng;
+use sha2::Digest;
 use sp_core::crypto::Ss58Codec;
+use sp_std::convert::TryInto;
 
 macro_rules! bvec {
 	($( $x:tt )*) => {
@@ -31,37 +31,49 @@ fn generate_device_keypair() -> (SigningKey, DeviceKey) {
 	let verifying_key = signing_key.verifying_key(); // Serialize with `::to_encoded_point()`
 	let public_key: PublicKey<NistP256> = verifying_key.into();
 	// let encoded_point = publickey.to_encoded_point(true);
-	return (signing_key, public_key.to_encoded_point(true).as_bytes().try_into().expect("error length"))
+	return (
+		signing_key,
+		public_key.to_encoded_point(true).as_bytes().try_into().expect("error length"),
+	)
 }
 
 // produce a device and bind a vfe
-fn produce_device_bind_vfe(producer: AccountId, user: AccountId, pub_key: DeviceKey, key: SigningKey) {
-		//set incentive token
-		assert_ok!(VFE::set_incentive_token(Origin::root(), 1));
-		// register producer
-		assert_ok!(VFE::producer_register(Origin::signed(producer.clone())));
-		// create vfe brand
-		assert_ok!(VFE::create_vfe_brand(Origin::signed(CANDY), bvec![0u8; 20], SportType::JumpRope, VFERarity::Common));
-		assert_ok!(VFE::approve_mint(Origin::signed(CANDY), 1, 1, 10, Some((0, 10))));
-		// register device
-		assert_ok!(VFE::register_device(Origin::signed(producer), pub_key, 1, 1));
-		let account_nonce = 123u32;
-		let account_rip160 = Ripemd::Hash::hash(user.encode().as_ref());
-		let mut msg: Vec<u8> = Vec::new();
-		msg.extend(account_nonce.to_le_bytes().to_vec());
-		msg.extend(account_rip160.to_vec());
+fn produce_device_bind_vfe(
+	producer: AccountId,
+	user: AccountId,
+	pub_key: DeviceKey,
+	key: SigningKey,
+) {
+	//set incentive token
+	assert_ok!(VFE::set_incentive_token(Origin::root(), 1));
+	// register producer
+	assert_ok!(VFE::producer_register(Origin::signed(producer.clone())));
+	// create vfe brand
+	assert_ok!(VFE::create_vfe_brand(
+		Origin::signed(CANDY),
+		bvec![0u8; 20],
+		SportType::JumpRope,
+		VFERarity::Common
+	));
+	assert_ok!(VFE::approve_mint(Origin::signed(CANDY), 1, 1, 10, Some((0, 10))));
+	// register device
+	assert_ok!(VFE::register_device(Origin::signed(producer), pub_key, 1, 1));
+	let account_nonce = 123u32;
+	let account_rip160 = Ripemd::Hash::hash(user.encode().as_ref());
+	let mut msg: Vec<u8> = Vec::new();
+	msg.extend(account_nonce.to_le_bytes().to_vec());
+	msg.extend(account_rip160.to_vec());
 
-		let signature = key.sign(msg.as_ref());
+	let signature = key.sign(msg.as_ref());
 
-		assert_ok!(VFE::bind_device(
-			Origin::signed(user.clone()),
-			pub_key,
-			signature.to_vec().try_into().unwrap(),
-			account_nonce,
-			None
-		));
+	assert_ok!(VFE::bind_device(
+		Origin::signed(user.clone()),
+		pub_key,
+		signature.to_vec().try_into().unwrap(),
+		account_nonce,
+		None
+	));
 }
-
 
 #[test]
 fn set_incentive_token_unit_test() {
@@ -327,47 +339,7 @@ fn upload_training_report_unit_test() {
 
 		// first report
 		let report = JumpRopeTrainingReport {
-		timestamp: 1668676716,
-			training_duration: 183,
-			total_jump_rope_count: 738,
-			average_speed: 140,
-			max_speed: 230,
-			max_jump_rope_count: 738,
-			interruptions: 0,
-			jump_rope_duration: 183,
-		};
-		let report_encode: Vec<u8> = report.into();
-		let report_sig = key.sign(&report_encode);
-		assert_ok!(VFE::upload_training_report(
-			Origin::signed(user.clone()),
-			 pub_key,
-			 BoundedVec::truncate_from(report_sig.to_vec()),
-			 BoundedVec::truncate_from(report.into()),
-		));
-		System::assert_has_event(Event::VFE(crate::Event::TrainingReportsAndRewards(
-			DANY, 1, 1, SportType::JumpRope,
-			report.timestamp,report.training_duration,report.total_jump_rope_count, 6, 1, 9000000)));
-		System::assert_has_event(Event::Assets(pallet_assets::Event::Issued { asset_id: 1, owner: user.clone(), total_supply: 9000000 }));
-		let user_balance = <Currencies as fungibles::Inspect<AccountId>>::balance(1, &user);
-		assert_eq!(user_balance, 9000000);
-		let user_data = Users::<Test>::get(&user).expect("cannot find user");
-		// println!("user data: {:?}", user_data);
-		assert_eq!(user_data.energy, 2);
-		assert_eq!(user_data.earned, 9000000);
-		let vfe_data = VFEDetails::<Test>::get(1,1).expect("cannot find vfe detail");
-		assert_eq!(vfe_data.remaining_battery, 94);
-
-		// can not report same timestamp
-		assert_noop!(VFE::upload_training_report(
-			Origin::signed(user.clone()),
-			 pub_key,
-			 BoundedVec::truncate_from(report_sig.to_vec()),
-			 BoundedVec::truncate_from(report.into()),
-		), Error::<Test>::ValueInvalid);
-
-		// second report
-		let report = JumpRopeTrainingReport {
-		timestamp: 1668827349,
+			timestamp: 1668676716,
 			training_duration: 183,
 			total_jump_rope_count: 738,
 			average_speed: 140,
@@ -385,12 +357,81 @@ fn upload_training_report_unit_test() {
 			BoundedVec::truncate_from(report.into()),
 		));
 		System::assert_has_event(Event::VFE(crate::Event::TrainingReportsAndRewards(
-			DANY, 1, 1, SportType::JumpRope,
-			report.timestamp,report.training_duration,report.total_jump_rope_count, 2, 1, 4200000)));
-		System::assert_has_event(Event::Assets(pallet_assets::Event::Issued { asset_id: 1, owner: user.clone(), total_supply: 4200000 }));
+			DANY,
+			1,
+			1,
+			SportType::JumpRope,
+			report.timestamp,
+			report.training_duration,
+			report.total_jump_rope_count,
+			6,
+			1,
+			9000000,
+		)));
+		System::assert_has_event(Event::Assets(pallet_assets::Event::Issued {
+			asset_id: 1,
+			owner: user.clone(),
+			total_supply: 9000000,
+		}));
+		let user_balance = <Currencies as fungibles::Inspect<AccountId>>::balance(1, &user);
+		assert_eq!(user_balance, 9000000);
+		let user_data = Users::<Test>::get(&user).expect("cannot find user");
+		// println!("user data: {:?}", user_data);
+		assert_eq!(user_data.energy, 2);
+		assert_eq!(user_data.earned, 9000000);
+		let vfe_data = VFEDetails::<Test>::get(1, 1).expect("cannot find vfe detail");
+		assert_eq!(vfe_data.remaining_battery, 94);
+
+		// can not report same timestamp
+		assert_noop!(
+			VFE::upload_training_report(
+				Origin::signed(user.clone()),
+				pub_key,
+				BoundedVec::truncate_from(report_sig.to_vec()),
+				BoundedVec::truncate_from(report.into()),
+			),
+			Error::<Test>::ValueInvalid
+		);
+
+		// second report
+		let report = JumpRopeTrainingReport {
+			timestamp: 1668827349,
+			training_duration: 183,
+			total_jump_rope_count: 738,
+			average_speed: 140,
+			max_speed: 230,
+			max_jump_rope_count: 738,
+			interruptions: 0,
+			jump_rope_duration: 183,
+		};
+		let report_encode: Vec<u8> = report.into();
+		let report_sig = key.sign(&report_encode);
+		assert_ok!(VFE::upload_training_report(
+			Origin::signed(user.clone()),
+			pub_key,
+			BoundedVec::truncate_from(report_sig.to_vec()),
+			BoundedVec::truncate_from(report.into()),
+		));
+		System::assert_has_event(Event::VFE(crate::Event::TrainingReportsAndRewards(
+			DANY,
+			1,
+			1,
+			SportType::JumpRope,
+			report.timestamp,
+			report.training_duration,
+			report.total_jump_rope_count,
+			2,
+			1,
+			4200000,
+		)));
+		System::assert_has_event(Event::Assets(pallet_assets::Event::Issued {
+			asset_id: 1,
+			owner: user.clone(),
+			total_supply: 4200000,
+		}));
 
 		let report = JumpRopeTrainingReport {
-		timestamp: 1668827380,
+			timestamp: 1668827380,
 			training_duration: 1,
 			total_jump_rope_count: 1,
 			average_speed: 1,
@@ -403,18 +444,20 @@ fn upload_training_report_unit_test() {
 		let report_sig = key.sign(&report_encode);
 
 		// if user no energy, can not report training
-		assert_noop!(VFE::upload_training_report(
-			Origin::signed(user.clone()),
-			 pub_key,
-			 BoundedVec::truncate_from(report_sig.to_vec()),
-			 BoundedVec::truncate_from(report.into()),
-		), Error::<Test>::EnergyExhausted);
-
+		assert_noop!(
+			VFE::upload_training_report(
+				Origin::signed(user.clone()),
+				pub_key,
+				BoundedVec::truncate_from(report_sig.to_vec()),
+				BoundedVec::truncate_from(report.into()),
+			),
+			Error::<Test>::EnergyExhausted
+		);
 	});
 }
 
 #[test]
-fn global_energy_recovery_and_daily_earned_reset_unit_test()  {
+fn global_energy_recovery_and_daily_earned_reset_unit_test() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(LastEnergyRecovery::<Test>::get(), 0);
 		assert_eq!(LastDailyEarnedReset::<Test>::get(), 0);
@@ -436,14 +479,14 @@ fn global_energy_recovery_and_daily_earned_reset_unit_test()  {
 		assert_eq!(LastDailyEarnedReset::<Test>::get(), 24);
 		System::assert_has_event(Event::VFE(crate::Event::GlobalDailyEarnedResetOccurred(24)));
 		run_to_block(9889);
-		let last_update = 9889u64.saturating_div(EnergyRecoveryDuration::get())* EnergyRecoveryDuration::get();
+		let last_update =
+			9889u64.saturating_div(EnergyRecoveryDuration::get()) * EnergyRecoveryDuration::get();
 		assert_eq!(LastEnergyRecovery::<Test>::get(), last_update);
 		assert_eq!(LastDailyEarnedReset::<Test>::get(), last_update);
 		System::assert_has_event(Event::VFE(crate::Event::GlobalEnergyRecoveryOccurred(9888)));
 		System::assert_has_event(Event::VFE(crate::Event::GlobalDailyEarnedResetOccurred(9888)));
 	});
 }
-
 
 #[test]
 fn user_restore_unit_test() {
@@ -453,19 +496,23 @@ fn user_restore_unit_test() {
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
 		let report = JumpRopeTrainingReport {
-				timestamp: 1668676716,
-					training_duration: 183,
-					total_jump_rope_count: 738,
-					average_speed: 140,
-					max_speed: 230,
-					max_jump_rope_count: 738,
-					interruptions: 0,
-					jump_rope_duration: 183,
-				};
+			timestamp: 1668676716,
+			training_duration: 183,
+			total_jump_rope_count: 738,
+			average_speed: 140,
+			max_speed: 230,
+			max_jump_rope_count: 738,
+			interruptions: 0,
+			jump_rope_duration: 183,
+		};
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
-		assert_ok!(VFE::upload_training_report(Origin::signed(user.clone()),
-		pub_key, report_sig.to_vec().try_into().unwrap(), report_encode.try_into().unwrap()));
+		assert_ok!(VFE::upload_training_report(
+			Origin::signed(user.clone()),
+			pub_key,
+			report_sig.to_vec().try_into().unwrap(),
+			report_encode.try_into().unwrap()
+		));
 
 		//after global energy recovery occurred
 		run_to_block(9);
@@ -475,7 +522,7 @@ fn user_restore_unit_test() {
 		let user_data = Users::<Test>::get(&user).expect("cannot find user");
 		// println!("user data: {:?}", user_data);
 		assert_eq!(user_data.energy, 4);
-		assert!(user_data.earned !=0);
+		assert!(user_data.earned != 0);
 
 		//after repeatedly global energy recovery occurred
 		run_to_block(229);
@@ -483,11 +530,9 @@ fn user_restore_unit_test() {
 		System::assert_has_event(Event::VFE(crate::Event::UserEnergyRestored(user.clone(), 4)));
 		let user_data = Users::<Test>::get(&user).expect("cannot find user");
 		assert_eq!(user_data.energy, 8);
-		assert!(user_data.earned==0);
-
+		assert!(user_data.earned == 0);
 	});
 }
-
 
 #[test]
 fn restore_power_unit_test() {
@@ -497,37 +542,55 @@ fn restore_power_unit_test() {
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
 		let report = JumpRopeTrainingReport {
-				timestamp: 1668676716,
-					training_duration: 183,
-					total_jump_rope_count: 738,
-					average_speed: 140,
-					max_speed: 230,
-					max_jump_rope_count: 738,
-					interruptions: 0,
-					jump_rope_duration: 183,
-				};
+			timestamp: 1668676716,
+			training_duration: 183,
+			total_jump_rope_count: 738,
+			average_speed: 140,
+			max_speed: 230,
+			max_jump_rope_count: 738,
+			interruptions: 0,
+			jump_rope_duration: 183,
+		};
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
-		assert_ok!(VFE::upload_training_report(Origin::signed(user.clone()),
-		pub_key, report_sig.to_vec().try_into().unwrap(), report_encode.try_into().unwrap()));
+		assert_ok!(VFE::upload_training_report(
+			Origin::signed(user.clone()),
+			pub_key,
+			report_sig.to_vec().try_into().unwrap(),
+			report_encode.try_into().unwrap()
+		));
 
 		assert_ok!(VFE::restore_power(Origin::signed(user.clone()), 1, 1, 3));
-		System::assert_has_event(Event::VFE(crate::Event::PowerRestored(user.clone(), 3, 2100000, 1,1)));
+		System::assert_has_event(Event::VFE(crate::Event::PowerRestored(
+			user.clone(),
+			3,
+			2100000,
+			1,
+			1,
+		)));
 
-		let vfe_data = VFEDetails::<Test>::get(1,1).expect("cannot find vfe detail");
+		let vfe_data = VFEDetails::<Test>::get(1, 1).expect("cannot find vfe detail");
 		assert_eq!(vfe_data.remaining_battery, 97);
 
-		assert_noop!(VFE::restore_power(Origin::signed(user.clone()), 1, 1, 4), Error::<Test>::ValueOverflow);
+		assert_noop!(
+			VFE::restore_power(Origin::signed(user.clone()), 1, 1, 4),
+			Error::<Test>::ValueOverflow
+		);
 
 		// user balance of asset is no enough to restore pow
 		assert_ok!(Currencies::transfer(Origin::signed(user.clone()), BOB, 1, 6400000, false));
-		assert_noop!(VFE::restore_power(Origin::signed(user.clone()), 1, 1, 3), pallet_assets::Error::<Test>::BalanceLow);
+		assert_noop!(
+			VFE::restore_power(Origin::signed(user.clone()), 1, 1, 3),
+			pallet_assets::Error::<Test>::BalanceLow
+		);
 
 		// after transfer user balance of asset is enough to restore pow
 		assert_ok!(Currencies::transfer(Origin::signed(BOB), user.clone(), 1, 6400000, false));
 		assert_ok!(VFE::restore_power(Origin::signed(user.clone()), 1, 1, 3));
-		assert_noop!(VFE::restore_power(Origin::signed(user.clone()), 1, 1, 3), Error::<Test>::VFEFullyCharged);
-
+		assert_noop!(
+			VFE::restore_power(Origin::signed(user.clone()), 1, 1, 3),
+			Error::<Test>::VFEFullyCharged
+		);
 	});
 }
 
@@ -539,9 +602,18 @@ fn level_up_unit_test() {
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
 
-		assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 0), Error::<Test>::ValueInvalid);
-				assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 2, 1), Error::<Test>::VFENotExist);
-		assert_noop!(VFE::level_up(Origin::signed(BOB), 1, 1, 1), Error::<Test>::OperationIsNotAllowed);
+		assert_noop!(
+			VFE::level_up(Origin::signed(user.clone()), 1, 1, 0),
+			Error::<Test>::ValueInvalid
+		);
+		assert_noop!(
+			VFE::level_up(Origin::signed(user.clone()), 1, 2, 1),
+			Error::<Test>::VFENotExist
+		);
+		assert_noop!(
+			VFE::level_up(Origin::signed(BOB), 1, 1, 1),
+			Error::<Test>::OperationIsNotAllowed
+		);
 
 		//issue some asset to user, then level up VFE
 		assert_ok!(Currencies::mint_into(1, &user, 90000000));
@@ -567,7 +639,10 @@ fn level_up_unit_test() {
 
 		// let user_balance = Currencies::balance(1, &user);
 		// println!("user_balance = {}", user_balance);
-		assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 5), pallet_assets::Error::<Test>::BalanceLow);
+		assert_noop!(
+			VFE::level_up(Origin::signed(user.clone()), 1, 1, 5),
+			pallet_assets::Error::<Test>::BalanceLow
+		);
 	});
 }
 
@@ -579,9 +654,18 @@ fn increase_ability_unit_test() {
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
 
-		assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 0), Error::<Test>::ValueInvalid);
-				assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 2, 1), Error::<Test>::VFENotExist);
-		assert_noop!(VFE::level_up(Origin::signed(BOB), 1, 1, 1), Error::<Test>::OperationIsNotAllowed);
+		assert_noop!(
+			VFE::level_up(Origin::signed(user.clone()), 1, 1, 0),
+			Error::<Test>::ValueInvalid
+		);
+		assert_noop!(
+			VFE::level_up(Origin::signed(user.clone()), 1, 2, 1),
+			Error::<Test>::VFENotExist
+		);
+		assert_noop!(
+			VFE::level_up(Origin::signed(BOB), 1, 1, 1),
+			Error::<Test>::OperationIsNotAllowed
+		);
 
 		//issue some asset to user, then level up VFE
 		assert_ok!(Currencies::mint_into(1, &user, 90000000));
@@ -590,47 +674,42 @@ fn increase_ability_unit_test() {
 		assert_eq!(origin_vfe.level, 4);
 		assert_eq!(origin_vfe.available_points, 16);
 
-		let add_point = VFEAbility{
-			efficiency: 10,
-			skill: 10,
-			luck: 10,
-			durable: 10,
-		};
-		assert_noop!(VFE::increase_ability(Origin::signed(user.clone()), 1, 1, add_point), Error::<Test>::ValueInvalid);
+		let add_point = VFEAbility { efficiency: 10, skill: 10, luck: 10, durable: 10 };
+		assert_noop!(
+			VFE::increase_ability(Origin::signed(user.clone()), 1, 1, add_point),
+			Error::<Test>::ValueInvalid
+		);
 
-		let add_point = VFEAbility{
-			efficiency: 3,
-			skill: 4,
-			luck: 3,
-			durable: 4,
-		};
+		let add_point = VFEAbility { efficiency: 3, skill: 4, luck: 3, durable: 4 };
 		assert_ok!(VFE::increase_ability(Origin::signed(user.clone()), 1, 1, add_point));
 		System::assert_has_event(Event::VFE(crate::Event::VFEAbilityIncreased(1, 1)));
 
 		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
 		assert_eq!(vfe.level, 4);
 		assert_eq!(vfe.available_points, 2);
-		assert_eq!(vfe.current_ability.efficiency, origin_vfe.current_ability.efficiency + add_point.efficiency);
+		assert_eq!(
+			vfe.current_ability.efficiency,
+			origin_vfe.current_ability.efficiency + add_point.efficiency
+		);
 		assert_eq!(vfe.current_ability.skill, origin_vfe.current_ability.skill + add_point.skill);
 		assert_eq!(vfe.current_ability.luck, origin_vfe.current_ability.luck + add_point.luck);
-		assert_eq!(vfe.current_ability.durable, origin_vfe.current_ability.durable + add_point.durable);
-
-
+		assert_eq!(
+			vfe.current_ability.durable,
+			origin_vfe.current_ability.durable + add_point.durable
+		);
 	});
 }
 
 #[test]
 fn transfer_unit_test() {
-	new_test_ext().execute_with(|| {
-
-	});
+	new_test_ext().execute_with(|| {});
 }
 
 #[test]
 fn verify_bind_device_message_unit_test() {
 	new_test_ext().execute_with(|| {
 		// verify_bind_device_message
-		let x = &hex!["0339d3e6e837d675ce77e85d708caf89ddcdbf53c8e510775c9cb9ec06282475a0"];
+		let x = hex!["0339d3e6e837d675ce77e85d708caf89ddcdbf53c8e510775c9cb9ec06282475a0"];
 		// let pubkey = VerifyingKey::from_sec1_bytes(x).unwrap();
 		let sig = Signature::from_bytes(&hex!["d851b2fcd63bf78a52008e043cb28c47523c2ee2c3c9425c8b0a005e2f6f53b101690e030e0b2c8c6ae99c3a40c02f58dffd1fded34f84953d0e6ea671d83930"]).unwrap();
 		let nonce = 0u32;
@@ -640,7 +719,7 @@ fn verify_bind_device_message_unit_test() {
 		//13a7c41c6fa23d80f586051c6ccce5eb60192a20
 		println!("ripemd160: {}", hex::encode(account_rip160));
 
-		assert_ok!(VFE::verify_bind_device_message(account_id, nonce, DeviceKey::from_full(x).unwrap(), sig.as_bytes()), true);
+		assert_ok!(VFE::verify_bind_device_message(account_id, nonce, DeviceKey::from_raw(x), sig.as_bytes()), true);
 	});
 }
 
@@ -650,7 +729,8 @@ fn generate_bind_device_message_unit_test() {
 		let (key, pub_key) = generate_device_keypair();
 		let nonce = 1u32;
 		//5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y
-		let account_id = AccountId::from_string("5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y").unwrap();
+		let account_id =
+			AccountId::from_string("5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y").unwrap();
 		let account_rip160 = Ripemd::Hash::hash(account_id.encode().as_ref());
 		let mut msg: Vec<u8> = Vec::new();
 		msg.extend(nonce.to_le_bytes().to_vec());
@@ -660,14 +740,15 @@ fn generate_bind_device_message_unit_test() {
 		println!("device key: {}", hex::encode(pub_key));
 		println!("signature: {}", hex::encode(sig));
 
-		assert_ok!(VFE::verify_bind_device_message(account_id, nonce, pub_key, sig.as_bytes()), true);
+		assert_ok!(
+			VFE::verify_bind_device_message(account_id, nonce, pub_key, sig.as_bytes()),
+			true
+		);
 	});
 }
 
-
 #[test]
 fn verify_training_data_signature() {
-
 	let x = &hex!["0339d3e6e837d675ce77e85d708caf89ddcdbf53c8e510775c9cb9ec06282475a0"];
 	let pubkey = VerifyingKey::from_sec1_bytes(x).unwrap();
 
@@ -681,7 +762,8 @@ fn verify_training_data_signature() {
 	assert!(pubkey.verify(training_data.as_ref(), &sig).is_ok());
 	// assert!(pubkey.verify_digest(training_hash, &sig).is_ok());
 
-	let training_report = JumpRopeTrainingReport::try_from(training_data.to_vec()).expect("convert failed");
+	let training_report =
+		JumpRopeTrainingReport::try_from(training_data.to_vec()).expect("convert failed");
 	println!("training_report = {:?}", training_report);
 }
 
@@ -689,13 +771,13 @@ fn verify_training_data_signature() {
 fn training_report_encode_unit_test() {
 	let report = JumpRopeTrainingReport {
 		timestamp: 1668676716,
-			training_duration: 183,
-			total_jump_rope_count: 738,
-			average_speed: 140,
-			max_speed: 230,
-			max_jump_rope_count: 738,
-			interruptions: 0,
-			jump_rope_duration: 183,
+		training_duration: 183,
+		total_jump_rope_count: 738,
+		average_speed: 140,
+		max_speed: 230,
+		max_jump_rope_count: 738,
+		interruptions: 0,
+		jump_rope_duration: 183,
 	};
 	let encode: Vec<u8> = report.into();
 	println!("encode = {}", hex::encode(&encode[..]));

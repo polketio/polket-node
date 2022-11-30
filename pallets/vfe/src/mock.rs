@@ -255,7 +255,6 @@ impl Config for Test {
 	type InitEnergy = InitEnergy;
 	type InitEarningCap = InitEarningCap;
 	type EnergyRecoveryRatio = EnergyRecoveryRatio;
-
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {

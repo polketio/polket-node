@@ -23,7 +23,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungibles::{Inspect as MultiAssets, Mutate as MultiAssetsMutate, Transfer},
-		tokens::nonfungibles::{Create, Inspect, Mutate, InspectEnumerable},
+		tokens::nonfungibles::{Create, Inspect, InspectEnumerable, Mutate},
 		Randomness,
 	},
 	transactional, PalletId,
@@ -33,6 +33,7 @@ use frame_system::{pallet_prelude::*, RawOrigin};
 
 use bitcoin_hashes::Hash as OtherHash;
 use frame_support::traits::fungibles;
+pub use impl_nonfungibles::*;
 use p256::ecdsa::{
 	signature::{Signature as Sig, Verifier},
 	Signature, VerifyingKey,
@@ -55,7 +56,6 @@ use sp_std::{
 	vec::Vec,
 };
 pub use types::*;
-pub use impl_nonfungibles::*;
 
 #[cfg(test)]
 mod mock;
@@ -67,9 +67,9 @@ pub mod impl_nonfungibles;
 pub mod types;
 
 type BalanceOf<T> =
-<<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::Balance;
 type AssetIdOf<T> =
-<<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::AssetId;
+	<<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::AssetId;
 type VFEBrandApprovalOf<T> = VFEBrandApprove<AssetIdOf<T>, BalanceOf<T>>;
 
 #[frame_support::pallet]
@@ -82,38 +82,38 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-		///  Who can create VFE class and register producer
-		type BrandOrigin: EnsureOrigin<Self::Origin, Success=Self::AccountId>;
+		///  Who can create VFE brand
+		type BrandOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 
 		/// Who can register device and mint VFEs
-		type ProducerOrigin: EnsureOrigin<Self::Origin, Success=Self::AccountId>;
+		type ProducerOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 
 		/// Multiple asset types
 		type Currencies: MultiAssets<Self::AccountId>
-		+ Transfer<Self::AccountId>
-		+ MultiAssetsMutate<Self::AccountId>;
+			+ Transfer<Self::AccountId>
+			+ MultiAssetsMutate<Self::AccountId>;
 
 		/// ObjectId linked Data
 		type ObjectId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
-		type UniqueId: UniqueIdGenerator<ObjectId=Self::ObjectId>;
+		type UniqueId: UniqueIdGenerator<ObjectId = Self::ObjectId>;
 
 		/// The pallet id
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
-		/// Randomness
+		/// Used to randomly generate VFE base ability value
 		type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 
 		/// pallet-uniques instance
 		type UniquesInstance: Copy + Clone + PartialEq + Eq;
 
-		/// The producer id
+		/// The producer-id key
 		#[pallet::constant]
 		type ProducerId: Get<Self::ObjectId>;
 
-		/// The vfe brand id
+		/// The vfe brand-id key
 		#[pallet::constant]
 		type VFEBrandId: Get<Self::ObjectId>;
 
@@ -121,7 +121,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type UnbindFee: Get<BalanceOf<Self>>;
 
-		/// cost base unit
+		/// Units of Incentive Tokens Rewarded or Costed
 		#[pallet::constant]
 		type CostUnit: Get<BalanceOf<Self>>;
 
@@ -173,7 +173,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn producers)]
 	pub(crate) type Producers<T: Config> =
-	StorageMap<_, Twox64Concat, T::ObjectId, Producer<T::ObjectId, T::AccountId>, OptionQuery>;
+		StorageMap<_, Twox64Concat, T::ObjectId, Producer<T::ObjectId, T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn vfe_brands)]
@@ -217,18 +217,6 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	// #[pallet::storage]
-	// #[pallet::getter(fn vfe_bind_devices)]
-	// pub(crate) type VFEBindDevices<T: Config> = StorageDoubleMap<
-	// 	_,
-	// 	Twox64Concat,
-	// 	T::CollectionId,
-	// 	Twox64Concat,
-	// 	T::ItemId,
-	// 	DeviceKey,
-	// 	OptionQuery,
-	// >;
-
 	#[pallet::storage]
 	#[pallet::getter(fn get_vfe_approvals)]
 	pub(super) type VFEApprovals<T: Config> = StorageDoubleMap<
@@ -254,14 +242,6 @@ pub mod pallet {
 
 		/// producer change the owner  \[former_owner, producer_id,  new_owner\]
 		ProducerOwnerChanged(T::AccountId, T::ObjectId, T::AccountId),
-
-		///  producer charge the locked_of_mint   \[former_owner, producer_id,  asset_id, balance
-		/// \]
-		ProducerCharge(T::AccountId, T::ObjectId, AssetIdOf<T>, BalanceOf<T>),
-
-		/// producer withdraw the locked_of_mint  \[former_owner, producer_id,  asset_id, balance
-		/// \]
-		ProducerWithdraw(T::AccountId, T::ObjectId, AssetIdOf<T>, BalanceOf<T>),
 
 		/// Created device type class. \[executor, class_id, sport_type, note\]
 		VFEBrandCreated(T::AccountId, T::CollectionId, SportType, VFERarity, Vec<u8>),
@@ -313,14 +293,6 @@ pub mod pallet {
 
 		/// user daily earned reset. \[ owner \]
 		UserDailyEarnedReset(T::AccountId),
-
-		Sha256Test(Vec<u8>),
-
-		/// VerifyTest. \[ pubkey, msg, sha256msg, signature, isValid  \]
-		VerifyTest(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, bool),
-
-		/// SignTest. \[ privatekey, pubkey, msg, sha256msg, signature \]
-		SignTest(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>),
 
 		/// ApprovedMint \[collection_id, product_id, mint_amount, mint_cost\]
 		ApprovedMint(T::CollectionId, T::ObjectId, u32, Option<(AssetIdOf<T>, BalanceOf<T>)>),
@@ -417,10 +389,10 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
-		where
-			T::CollectionId: From<T::ObjectId>,
-			T::ItemId: From<T::ObjectId>,
-			T::ObjectId: From<T::CollectionId>,
+	where
+		T::CollectionId: From<T::ObjectId>,
+		T::ItemId: From<T::ObjectId>,
+		T::ObjectId: From<T::CollectionId>,
 	{
 		/// set incentive token
 		/// - origin AccountId sudo key can do
@@ -481,93 +453,6 @@ pub mod pallet {
 
 			Ok(())
 		}
-
-		// /// producer_charge - Owner charge the locked_of_mint to  the Producer
-		// /// - origin AccountId -creater
-		// /// - producer_id ProducerId -producer
-		// /// - amount Balance -target amount
-		// /// - asset_id AssetId - Asset ID
-		// #[pallet::weight(10_000)]
-		// #[transactional]
-		// pub fn producer_charge(
-		// 	origin: OriginFor<T>,
-		// 	producer_id: ObjectId,
-		// 	asset_id: AssetIdOf<T>,
-		// 	amount: BalanceOf<T>,
-		// ) -> DispatchResult {
-		// 	// Get identity role of origin
-		// 	let owner = T::ProducerOrigin::ensure_origin(origin.clone())?;
-		//
-		// 	// get the producer
-		// 	let mut producer = Self::check_producer(owner.clone(), producer_id)?;
-		//
-		// 	// check out the owner_balance
-		// 	let owner_balance = T::Currencies::balance(asset_id, &owner);
-		//
-		// 	// check the owner's balance greater or equal to the target amount
-		// 	ensure!(owner_balance >= amount, Error::<T>::BalanceNotEnough);
-		//
-		// 	let producer_account = producer.account.clone();
-		//
-		// 	// try to transfer the charge
-		// 	T::Currencies::transfer(asset_id, &owner, &producer_account, amount, true)?;
-		//
-		// 	let producer_balance = T::Currencies::balance(asset_id, &producer_account);
-		//
-		// 	// change the locked_of_mint
-		// 	producer.locked_of_mint = producer_balance;
-		//
-		// 	// update the producer
-		// 	Producers::<T>::insert(producer.id, producer);
-		//
-		// 	// save it to event
-		// 	Self::deposit_event(Event::ProducerCharge(owner, producer_id, asset_id, amount));
-		//
-		// 	Ok(())
-		// }
-
-		// /// producer_withdraw - Owner withdraw the locked_of_mint from the Producer
-		// /// - origin AccountId -creater
-		// /// - producer_id ProducerId -producer
-		// /// - amount Balance -target amount
-		// /// - asset_id AssetId - Asset ID
-		// #[pallet::weight(10_000)]
-		// #[transactional]
-		// pub fn producer_withdraw(
-		// 	origin: OriginFor<T>,
-		// 	producer_id: ObjectId,
-		// 	asset_id: AssetIdOf<T>,
-		// 	amount: BalanceOf<T>,
-		// ) -> DispatchResult {
-		// 	// Get identity role of origin
-		// 	let owner = T::ProducerOrigin::ensure_origin(origin.clone())?;
-		//
-		// 	// get the producer
-		// 	let mut producer = Self::check_producer(owner.clone(), producer_id)?;
-		//
-		// 	// check out the producer account
-		// 	let producer_account = producer.account.clone();
-		//
-		// 	// get the producer locked_of_mint balance
-		// 	let producer_balance = T::Currencies::balance(asset_id, &producer_account);
-		//
-		// 	// check the owner's balance greater or equal to the target amount
-		// 	ensure!(producer_balance >= amount, Error::<T>::BalanceNotEnough);
-		//
-		// 	// try to transfer the charge
-		// 	T::Currencies::transfer(asset_id, &producer_account, &owner, amount, true)?;
-		//
-		// 	// change the locked_of_mint
-		// 	producer.locked_of_mint = producer_balance;
-		//
-		// 	// update the producer
-		// 	Producers::<T>::insert(producer.id, producer);
-		//
-		// 	// save it to event
-		// 	Self::deposit_event(Event::ProducerWithdraw(owner, producer_id, asset_id, amount));
-		//
-		// 	Ok(())
-		// }
 
 		/// create a VFE brand
 		/// - origin AccountId
@@ -1077,10 +962,10 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T>
-	where
-		T::CollectionId: From<T::ObjectId>,
-		T::ItemId: From<T::ObjectId>,
-		T::ObjectId: From<T::CollectionId>,
+where
+	T::CollectionId: From<T::ObjectId>,
+	T::ItemId: From<T::ObjectId>,
+	T::ObjectId: From<T::CollectionId>,
 {
 	fn max_generate_random() -> u32 {
 		1000
@@ -1131,7 +1016,7 @@ impl<T: Config> Pallet<T>
 		// Best effort attempt to remove bias from modulus operator.
 		for _ in 1..Self::max_generate_random() {
 			if random_number < u32::MAX - u32::MAX % (total as u32) {
-				break;
+				break
 			}
 
 			let (random_number2, _, _) = Self::generate_random_number();
@@ -1163,7 +1048,7 @@ impl<T: Config> Pallet<T>
 		// check the validity of the signature
 		let flag = verify_key.verify(&msg, &sig).is_ok();
 
-		return Ok(flag);
+		return Ok(flag)
 	}
 
 	// check the device's public key.
@@ -1216,8 +1101,8 @@ impl<T: Config> Pallet<T>
 		let target = &req_sig[..];
 		let sig = Signature::from_bytes(target).map_err(|_| Error::<T>::DeviceSignatureInvalid)?;
 
-		let verify_key =
-			VerifyingKey::from_sec1_bytes(puk.as_ref()).map_err(|_| Error::<T>::PublicKeyEncodeError)?;
+		let verify_key = VerifyingKey::from_sec1_bytes(puk.as_ref())
+			.map_err(|_| Error::<T>::PublicKeyEncodeError)?;
 
 		// check the validity of the signature
 		let final_msg: &[u8] = &msg.as_ref();
@@ -1328,7 +1213,7 @@ impl<T: Config> Pallet<T>
 				));
 
 				Ok(())
-			}
+			},
 			SportType::Run => Err(Error::<T>::ValueInvalid)?,
 			SportType::Bicycle => Err(Error::<T>::ValueInvalid)?,
 		}
@@ -1435,7 +1320,7 @@ impl<T: Config> Pallet<T>
 						activated: 0,
 						registered: 0,
 					}
-				}
+				},
 			};
 
 			if mint_cost != None {
@@ -1558,7 +1443,10 @@ impl<T: Config> Pallet<T>
 		Ok(())
 	}
 
-	pub fn get_vfe_details_by_address(account: T::AccountId, brand_id: T::CollectionId) -> Vec<VFEDetail<T::CollectionId, T::ItemId, T::Hash, T::BlockNumber>> {
+	pub fn get_vfe_details_by_address(
+		account: T::AccountId,
+		brand_id: T::CollectionId,
+	) -> Vec<VFEDetail<T::CollectionId, T::ItemId, T::Hash, T::BlockNumber>> {
 		let items = Self::owned_in_collection(&brand_id, &account);
 		let mut values = Vec::new();
 		items.for_each(|e| {
