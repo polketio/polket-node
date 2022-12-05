@@ -58,7 +58,7 @@ fn produce_device_bind_vfe(
 	assert_ok!(VFE::approve_mint(Origin::signed(CANDY), 1, 1, 10, Some((0, 10))));
 	// register device
 	assert_ok!(VFE::register_device(Origin::signed(producer), pub_key, 1, 1));
-	let account_nonce = 123u32;
+	let account_nonce = 1u32;
 	let account_rip160 = Ripemd::Hash::hash(user.encode().as_ref());
 	let mut msg: Vec<u8> = Vec::new();
 	msg.extend(account_nonce.to_le_bytes().to_vec());
@@ -326,6 +326,65 @@ fn bind_device_unit_test() {
 		let vfe = VFEDetails::<Test>::get(1, 1).expect("VFEDetail not exist");
 		assert!(vfe.device_key.is_none());
 
+	});
+}
+
+#[test]
+fn bind_device_should_not_work() {
+	new_test_ext().execute_with(|| {
+		let producer = ALICE;
+		let user = DANY;
+		let (key, pub_key) = generate_device_keypair();
+		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
+
+		let account_nonce = 2u32;
+		let account_rip160 = Ripemd::Hash::hash(user.encode().as_ref());
+		let mut msg: Vec<u8> = Vec::new();
+		msg.extend(account_nonce.to_le_bytes().to_vec());
+		msg.extend(account_rip160.to_vec());
+
+		let signature = key.sign(msg.as_ref());
+
+
+		assert_noop!(
+			VFE::bind_device(
+				Origin::signed(user.clone()),
+				pub_key,
+				signature.to_vec().try_into().unwrap(),
+				account_nonce,
+				Some(1),
+			),
+			Error::<Test>::DeviceBond
+		);
+
+		//unbind_device
+		assert_ok!(VFE::unbind_device(
+			Origin::signed(user.clone()),
+			1,
+			1,
+		));
+
+		assert_noop!(
+			VFE::bind_device(
+				Origin::signed(user.clone()),
+				pub_key,
+				signature.to_vec().try_into().unwrap(),
+				account_nonce,
+				None,
+			),
+			Error::<Test>::DeviceBond
+		);
+
+		assert_noop!(
+			VFE::bind_device(
+				Origin::signed(user.clone()),
+				pub_key,
+				signature.to_vec().try_into().unwrap(),
+				account_nonce,
+				Some(2),
+			),
+			Error::<Test>::VFENotExist
+		);
 	});
 }
 

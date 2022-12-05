@@ -337,8 +337,12 @@ pub mod pallet {
 		NonceMustGreatThanBefore,
 		/// item not found
 		ItemNotFound,
-		/// DeviceNotBond
+		/// Device is not bond
 		DeviceNotBond,
+		/// VFE is not bond
+		VFENotBond,
+		/// VFE is bond
+		VFEBond,
 		/// VFENotExist
 		VFENotExist,
 		/// VFE is not fully charged
@@ -353,6 +357,8 @@ pub mod pallet {
 		PublicKeyEncodeError,
 		/// Device has been bond
 		DeviceBond,
+		/// Device has been voided
+		DeviceVoided,
 		/// RemainingMintAmountIsNotZero
 		RemainingMintAmountIsNotZero,
 		/// user energy is full
@@ -662,38 +668,46 @@ pub mod pallet {
 			let from = ensure_signed(origin.clone())?;
 			//  bind device signature
 			let mut device = Self::check_device_pub(from.clone(), puk, signature, nonce)?;
-
+			ensure!(device.item_id.is_none(), Error::<T>::DeviceBond);
 			// create the user if it is new
 			Self::create_new_user(from.clone());
 
-			// In this case, if the device is
-			if device.status == DeviceStatus::Registered {
-				// create the new instance
-				let mut vfe = Self::create_vfe(&device.brand_id, &device.producer_id, &from)?;
-				vfe.device_key = Some(puk);
-				device.item_id = Some(vfe.item_id);
-				device.status = DeviceStatus::Activated;
-				Devices::<T>::insert(puk, device);
+			let vfe = match bind_item {
+				Some(item_id) => {
+					//check if item_id is belong to origin
+					let mut vfe = VFEDetails::<T>::get(&device.brand_id, &item_id)
+						.ok_or(Error::<T>::VFENotExist)?;
+					ensure!(vfe.device_key.is_none(), Error::<T>::VFEBond);
+					let owner = Self::owner(&device.brand_id, &item_id)
+						.ok_or(Error::<T>::OperationIsNotAllowed)?;
+					ensure!(owner == from, Error::<T>::OperationIsNotAllowed);
+					vfe.device_key = Some(puk);
+					vfe
+				},
+				None => {
+					//check if device status is register, then create new vfe.
+					ensure!(device.status == DeviceStatus::Registered, Error::<T>::DeviceBond);
+					// create the new instance
+					let mut vfe = Self::create_vfe(&device.brand_id, &device.producer_id, &from)?;
+					vfe.device_key = Some(puk);
+					Self::deposit_event(Event::VFECreated(from.clone(), vfe));
+					vfe
+				},
+			};
 
-				// save vfe detail
-				VFEDetails::<T>::insert(&vfe.brand_id, &vfe.item_id, vfe.clone());
-				// VFEBindDevices::<T>::insert(&device.brand_id, &item, puk);
-				Self::deposit_event(Event::VFECreated(from.clone(), vfe));
-				Self::deposit_event(Event::DeviceBound(
-					from,
-					puk.clone(),
-					device.brand_id,
-					vfe.item_id,
-				));
-			} else {
-				ensure!(device.item_id.is_none(), Error::<T>::DeviceBond);
+			// save vfe detail
+			VFEDetails::<T>::insert(&vfe.brand_id, &vfe.item_id, vfe.clone());
 
-				let instance = bind_item.ok_or(Error::<T>::NoneValue)?;
-
-				device.item_id = Some(instance);
-				Devices::<T>::insert(puk.clone(), device);
-				Self::deposit_event(Event::DeviceBound(from, puk, device.brand_id, instance));
-			}
+			device.item_id = Some(vfe.item_id);
+			device.status = DeviceStatus::Activated;
+			// save device
+			Devices::<T>::insert(puk, device);
+			Self::deposit_event(Event::DeviceBound(
+				from,
+				puk.clone(),
+				device.brand_id,
+				vfe.item_id,
+			));
 
 			Ok(())
 		}
@@ -709,7 +723,7 @@ pub mod pallet {
 			let who = ensure_signed(origin.clone())?;
 			let mut vfe =
 				VFEDetails::<T>::get(&brand_id, &item_id).ok_or(Error::<T>::VFENotExist)?;
-			let device_pk = vfe.device_key.ok_or(Error::<T>::DeviceNotBond)?;
+			let device_pk = vfe.device_key.ok_or(Error::<T>::VFENotBond)?;
 			let mut device = Devices::<T>::get(device_pk).ok_or(Error::<T>::DeviceNotExisted)?;
 			// check vfe owner
 			let vfe_owner = Self::owner(&brand_id, &item_id).ok_or(Error::<T>::VFENotExist)?;
@@ -1064,6 +1078,8 @@ where
 		// get the producer owner
 		let mut device = Devices::<T>::get(puk.clone()).ok_or(Error::<T>::DeviceNotExisted)?;
 
+		ensure!(device.status != DeviceStatus::Voided, Error::<T>::DeviceVoided);
+
 		let flag = Self::verify_bind_device_message(account, nonce.clone(), puk, &signature[..])?;
 
 		ensure!(flag, Error::<T>::DeviceSignatureInvalid);
@@ -1234,9 +1250,8 @@ where
 
 	// check the user if it is not exist and create it
 	fn create_new_user(account_id: T::AccountId) {
-		// get the producer owner
-		let block_number = frame_system::Pallet::<T>::block_number();
 		if !Users::<T>::contains_key(account_id.clone()) {
+			let block_number = frame_system::Pallet::<T>::block_number();
 			let user = User {
 				owner: account_id.clone(),
 				energy_total: Self::level_into_energy_cap(0),
