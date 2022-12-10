@@ -36,6 +36,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>},
 		VFEUniques: pallet_uniques::<Instance1>::{Pallet, Call, Storage, Event<T>},
@@ -76,6 +77,15 @@ impl system::Config for Test {
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
+
+
+impl pallet_timestamp::Config for Test {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = ConstU64<5>;
+	type WeightInfo = ();
+}
+
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 0;
@@ -233,6 +243,7 @@ parameter_types! {
 	pub const InitEnergy: u16 = 8;
 	pub const InitEarningCap: u16 = 500;
 	pub const EnergyRecoveryRatio: Permill = Permill::from_percent(25); //25%
+	pub const ReportValidityPeriod: u32 = 24 * 60 * 60;
 }
 
 impl Config for Test {
@@ -255,6 +266,8 @@ impl Config for Test {
 	type InitEnergy = InitEnergy;
 	type InitEarningCap = InitEarningCap;
 	type EnergyRecoveryRatio = EnergyRecoveryRatio;
+	type UnixTime = Timestamp;
+	type ReportValidityPeriod = ReportValidityPeriod;
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {

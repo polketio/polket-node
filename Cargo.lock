@@ -4595,6 +4595,7 @@ dependencies = [
  "pallet-balances",
  "pallet-currencies",
  "pallet-support",
+ "pallet-timestamp",
  "pallet-unique-id",
  "pallet-uniques",
  "parity-scale-codec 3.1.5",

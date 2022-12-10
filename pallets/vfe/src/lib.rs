@@ -24,7 +24,7 @@ use frame_support::{
 	traits::{
 		fungibles::{Inspect as MultiAssets, Mutate as MultiAssetsMutate, Transfer},
 		tokens::nonfungibles::{Create, Inspect, InspectEnumerable, Mutate},
-		Randomness,
+		Randomness, UnixTime,
 	},
 	transactional, PalletId,
 };
@@ -74,6 +74,8 @@ type VFEBrandApprovalOf<T> = VFEBrandApprove<AssetIdOf<T>, BalanceOf<T>>;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use frame_support::traits::UnixTime;
+
 	use super::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -148,6 +150,13 @@ pub mod pallet {
 		/// ratio of each energy recovery
 		#[pallet::constant]
 		type EnergyRecoveryRatio: Get<Permill>;
+
+		/// Used to get real world time
+		type UnixTime: UnixTime;
+
+		/// How long is the training report valid, unit: seconds
+		#[pallet::constant]
+		type ReportValidityPeriod: Get<u32>;
 	}
 
 	#[pallet::pallet]
@@ -369,6 +378,12 @@ pub mod pallet {
 		EnergyExhausted,
 		/// earned cap
 		EarnedCap,
+		/// Insufficient training
+		InsufficientTraining,
+		/// low battery
+		LowBattery,
+		/// training report time is expired
+		TrainingReportTimeExpired,
 	}
 
 	#[pallet::hooks]
@@ -1145,8 +1160,12 @@ where
 
 				let training_report = JumpRopeTrainingReport::try_from(report_data.into_inner())
 					.map_err(|_| Error::<T>::ValueInvalid)?;
-
+				// Check whether data is submitted repeatedly
 				ensure!(training_report.timestamp > device.timestamp, Error::<T>::ValueInvalid);
+				let now = T::UnixTime::now().as_secs();
+				let expired_time = training_report.timestamp + T::ReportValidityPeriod::get();
+				ensure!(now >= training_report.timestamp as u64, Error::<T>::ValueInvalid);
+				ensure!(now <= expired_time as u64, Error::<T>::TrainingReportTimeExpired);
 
 				let mut vfe =
 					VFEDetails::<T>::get(brand_id, item_id).ok_or(Error::<T>::VFENotExist)?;
@@ -1155,17 +1174,23 @@ where
 
 				ensure!(user.energy > 0, Error::<T>::EnergyExhausted);
 
-				//todo: check if earned cap
-				ensure!(user.earned < user.earning_cap, Error::<T>::EnergyExhausted);
+				// check if earned cap
+				ensure!(user.earned < user.earning_cap, Error::<T>::EarnedCap);
 
 				// Power consumption = training-duration / training_unit_duration
 				let mut power_used =
 					training_report.jump_rope_duration / sport_type.training_unit_duration();
 
+				// Check if the training is enough
+				ensure!(power_used > 0, Error::<T>::InsufficientTraining);
+
 				// check the user energy
 				if power_used > user.energy {
 					power_used = user.energy;
 				}
+
+				// check if VFE remaining battery is enough
+				ensure!(vfe.remaining_battery > 0, Error::<T>::LowBattery);
 
 				// check the vfe electric
 				if power_used > vfe.remaining_battery {

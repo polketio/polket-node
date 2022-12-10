@@ -395,7 +395,7 @@ fn upload_training_report_unit_test() {
 		let user = DANY;
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
-
+		Timestamp::set_timestamp(1668694716000);
 		// first report
 		let report = JumpRopeTrainingReport {
 			timestamp: 1668676716,
@@ -451,18 +451,50 @@ fn upload_training_report_unit_test() {
 			),
 			Error::<Test>::ValueInvalid
 		);
-
+		Timestamp::set_timestamp(1668847349000);
 		// second report
-		let report = JumpRopeTrainingReport {
+		let mut report = JumpRopeTrainingReport {
 			timestamp: 1668827349,
-			training_duration: 183,
+			training_duration: 1,
 			total_jump_rope_count: 738,
 			average_speed: 140,
 			max_speed: 230,
 			max_jump_rope_count: 738,
 			interruptions: 0,
-			jump_rope_duration: 183,
+			jump_rope_duration: 1,
 		};
+
+		// user insufficient training
+		let report_encode: Vec<u8> = report.into();
+		let report_sig = key.sign(&report_encode);
+		assert_noop!(
+			VFE::upload_training_report(
+				Origin::signed(user.clone()),
+				pub_key,
+				BoundedVec::truncate_from(report_sig.to_vec()),
+				BoundedVec::truncate_from(report.into()),
+			),
+			Error::<Test>::InsufficientTraining
+		);
+
+		// user training report time is expired
+		Timestamp::set_timestamp(1668914749000);
+		let report_encode: Vec<u8> = report.into();
+		let report_sig = key.sign(&report_encode);
+		assert_noop!(
+			VFE::upload_training_report(
+				Origin::signed(user.clone()),
+				pub_key,
+				BoundedVec::truncate_from(report_sig.to_vec()),
+				BoundedVec::truncate_from(report.into()),
+			),
+			Error::<Test>::TrainingReportTimeExpired
+		);
+
+		// sufficient training
+		report.training_duration = 183;
+		report.jump_rope_duration = 183;
+		report.timestamp = 1668904749;
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
 		assert_ok!(VFE::upload_training_report(
@@ -489,20 +521,10 @@ fn upload_training_report_unit_test() {
 			total_supply: 4200000,
 		}));
 
-		let report = JumpRopeTrainingReport {
-			timestamp: 1668827380,
-			training_duration: 1,
-			total_jump_rope_count: 1,
-			average_speed: 1,
-			max_speed: 1,
-			max_jump_rope_count: 1,
-			interruptions: 0,
-			jump_rope_duration: 1,
-		};
+		// if user no energy, can not report training
+		report.timestamp = 1668905749;
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
-
-		// if user no energy, can not report training
 		assert_noop!(
 			VFE::upload_training_report(
 				Origin::signed(user.clone()),
@@ -512,6 +534,8 @@ fn upload_training_report_unit_test() {
 			),
 			Error::<Test>::EnergyExhausted
 		);
+
+		
 	});
 }
 

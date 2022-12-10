@@ -107,7 +107,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("polket"),
 	impl_name: create_runtime_str!("polket"),
 	authoring_version: 1,
-	spec_version: 11,
+	spec_version: 13,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -653,6 +653,7 @@ parameter_types! {
 	pub const InitEnergy: u16 = 8;
 	pub const InitEarningCap: u16 = 500;
 	pub const EnergyRecoveryRatio: Permill = Permill::from_percent(25);
+	pub const ReportValidityPeriod: u32 = 24 * 60 * 60 * 1000; // 24 hours
 }
 
 impl pallet_vfe::Config for Runtime {
@@ -676,6 +677,8 @@ impl pallet_vfe::Config for Runtime {
 	type InitEnergy = InitEnergy;
 	type InitEarningCap = InitEarningCap;
 	type EnergyRecoveryRatio = EnergyRecoveryRatio;
+	type UnixTime = Timestamp;
+	type ReportValidityPeriod = ReportValidityPeriod;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
