@@ -83,7 +83,7 @@ fn set_incentive_token_unit_test() {
 
 		assert_ok!(VFE::set_incentive_token(Origin::root(), 1));
 
-		System::assert_has_event(Event::VFE(crate::Event::IncentiveTokenSet(1)));
+		System::assert_has_event(Event::VFE(crate::Event::IncentiveTokenSet { asset_id: 1 }));
 
 		let incentive_token = VFE::incentive_token().expect("incentive token not set");
 		assert_eq!(incentive_token, 1);
@@ -96,7 +96,10 @@ fn producer_register_should_work() {
 		// Dispatch a signed extrinsic.
 		assert_ok!(VFE::producer_register(Origin::signed(ALICE)));
 
-		System::assert_has_event(Event::VFE(crate::Event::ProducerRegister(ALICE, 1)));
+		System::assert_has_event(Event::VFE(crate::Event::ProducerRegister {
+			who: ALICE,
+			producer_id: 1,
+		}));
 
 		// wrong origin role.
 		assert_noop!(VFE::producer_register(Origin::signed(BOB)), DispatchError::BadOrigin);
@@ -111,7 +114,11 @@ fn producer_owner_change_should_work() {
 		// Dispatch a signed extrinsic.
 		assert_ok!(VFE::producer_owner_change(Origin::signed(ALICE), 1, TOM));
 
-		System::assert_has_event(Event::VFE(crate::Event::ProducerOwnerChanged(ALICE, 1, TOM)));
+		System::assert_has_event(Event::VFE(crate::Event::ProducerOwnerChanged {
+			old_owner: ALICE,
+			producer_id: 1,
+			new_owner: TOM,
+		}));
 
 		// wrong origin role.
 		assert_noop!(
@@ -149,13 +156,13 @@ fn create_vfe_brand_unit_test() {
 			VFERarity::Common
 		));
 
-		System::assert_has_event(Event::VFE(crate::Event::VFEBrandCreated(
-			CANDY,
-			1,
-			SportType::JumpRope,
-			VFERarity::Common,
-			bvec![0u8; 20],
-		)));
+		System::assert_has_event(Event::VFE(crate::Event::VFEBrandCreated {
+			who: CANDY,
+			brand_id: 1,
+			sport_type: SportType::JumpRope,
+			rarity: VFERarity::Common,
+			note: bvec![0u8; 20],
+		}));
 		let vfe_brand = VFE::vfe_brands(1).expect("can not find vfe brand");
 		assert_eq!(vfe_brand.sport_type, SportType::JumpRope);
 		assert_eq!(vfe_brand.rarity, VFERarity::Common);
@@ -176,7 +183,12 @@ fn approve_mint_unit_test() {
 			VFERarity::Common
 		));
 		assert_ok!(VFE::approve_mint(Origin::signed(CANDY), 1, 1, 10, None));
-		System::assert_has_event(Event::VFE(crate::Event::ApprovedMint(1, 1, 10, None)));
+		System::assert_has_event(Event::VFE(crate::Event::ApprovedMint {
+			brand_id: 1,
+			product_id: 1,
+			mint_amount: 10,
+			mint_cost: None,
+		}));
 		let approve = VFEApprovals::<Test>::get(1, 1).expect("approve is nil");
 		assert_eq!(approve.remaining_mint, 10);
 		assert_eq!(approve.mint_cost, None);
@@ -215,7 +227,12 @@ fn register_device_unit_test() {
 		let puk: DeviceKey = DeviceKey::from_raw(bytes);
 
 		assert_ok!(VFE::register_device(Origin::signed(ALICE), puk, 1, 1));
-		System::assert_has_event(Event::VFE(crate::Event::DeviceRegistered(ALICE, 1, puk, 1)));
+		System::assert_has_event(Event::VFE(crate::Event::DeviceRegistered {
+			operator: ALICE,
+			producer_id: 1,
+			device_key: puk,
+			brand_id: 1,
+		}));
 		let device = Devices::<Test>::get(puk).expect("device is nil");
 		assert_eq!(device.brand_id, 1);
 		assert_eq!(device.item_id, None);
@@ -240,7 +257,10 @@ fn register_device_unit_test() {
 
 		//deregister device
 		assert_ok!(VFE::deregister_device(Origin::signed(ALICE), puk));
-		System::assert_has_event(Event::VFE(crate::Event::DeviceDeregistered(ALICE, puk)));
+		System::assert_has_event(Event::VFE(crate::Event::DeviceDeregistered {
+			operator: ALICE,
+			device_key: puk,
+		}));
 
 		assert_eq!(Devices::<Test>::get(puk), None);
 
@@ -295,7 +315,7 @@ fn bind_device_unit_test() {
 			account_nonce,
 			None
 		));
-		System::assert_has_event(Event::VFE(crate::Event::DeviceBound(user.clone(), puk, 1, 1)));
+		System::assert_has_event(Event::VFE(crate::Event::DeviceBound{owner:user.clone(), device_key:puk, brand_id:1, item_id:1}));
 		// assert!(VFEBindDevices::<Test>::contains_key(1, 1));
 		let device = Devices::<Test>::get(puk).expect("can not find device");
 		assert!(device.item_id.is_some());
@@ -319,7 +339,7 @@ fn bind_device_unit_test() {
 			1,
 			1,
 		));
-		System::assert_has_event(Event::VFE(crate::Event::DeviceUnbound(user.clone(), puk, 1, 1)));
+		System::assert_has_event(Event::VFE(crate::Event::DeviceUnbound{owner:user.clone(), device_key:puk, brand_id:1, item_id:1}));
 		// assert!(!VFEBindDevices::<Test>::contains_key(1, 1));
 		let device = Devices::<Test>::get(puk).expect("can not find device");
 		assert!(device.item_id.is_none());
@@ -345,7 +365,6 @@ fn bind_device_should_not_work() {
 
 		let signature = key.sign(msg.as_ref());
 
-
 		assert_noop!(
 			VFE::bind_device(
 				Origin::signed(user.clone()),
@@ -358,11 +377,7 @@ fn bind_device_should_not_work() {
 		);
 
 		//unbind_device
-		assert_ok!(VFE::unbind_device(
-			Origin::signed(user.clone()),
-			1,
-			1,
-		));
+		assert_ok!(VFE::unbind_device(Origin::signed(user.clone()), 1, 1,));
 
 		assert_noop!(
 			VFE::bind_device(
@@ -415,18 +430,18 @@ fn upload_training_report_unit_test() {
 			BoundedVec::truncate_from(report_sig.to_vec()),
 			BoundedVec::truncate_from(report.into()),
 		));
-		System::assert_has_event(Event::VFE(crate::Event::TrainingReportsAndRewards(
-			DANY,
-			1,
-			1,
-			SportType::JumpRope,
-			report.timestamp,
-			report.training_duration,
-			report.total_jump_rope_count,
-			6,
-			1,
-			9000000,
-		)));
+		System::assert_has_event(Event::VFE(crate::Event::TrainingReportsAndRewards {
+			owner: DANY,
+			brand_id: 1,
+			item_id: 1,
+			sport_type: SportType::JumpRope,
+			training_time: report.timestamp,
+			training_duration: report.training_duration,
+			training_count: report.total_jump_rope_count,
+			energy_used: 6,
+			asset_id: 1,
+			rewards: 9000000,
+		}));
 		System::assert_has_event(Event::Assets(pallet_assets::Event::Issued {
 			asset_id: 1,
 			owner: user.clone(),
@@ -503,18 +518,18 @@ fn upload_training_report_unit_test() {
 			BoundedVec::truncate_from(report_sig.to_vec()),
 			BoundedVec::truncate_from(report.into()),
 		));
-		System::assert_has_event(Event::VFE(crate::Event::TrainingReportsAndRewards(
-			DANY,
-			1,
-			1,
-			SportType::JumpRope,
-			report.timestamp,
-			report.training_duration,
-			report.total_jump_rope_count,
-			2,
-			1,
-			4200000,
-		)));
+		System::assert_has_event(Event::VFE(crate::Event::TrainingReportsAndRewards {
+			owner: DANY,
+			brand_id: 1,
+			item_id: 1,
+			sport_type: SportType::JumpRope,
+			training_time: report.timestamp,
+			training_duration: report.training_duration,
+			training_count: report.total_jump_rope_count,
+			energy_used: 2,
+			asset_id: 1,
+			rewards: 4200000,
+		}));
 		System::assert_has_event(Event::Assets(pallet_assets::Event::Issued {
 			asset_id: 1,
 			owner: user.clone(),
@@ -534,8 +549,6 @@ fn upload_training_report_unit_test() {
 			),
 			Error::<Test>::EnergyExhausted
 		);
-
-		
 	});
 }
 
@@ -550,24 +563,34 @@ fn global_energy_recovery_and_daily_earned_reset_unit_test() {
 		run_to_block(9);
 		assert_eq!(LastEnergyRecovery::<Test>::get(), 8);
 		assert_eq!(LastDailyEarnedReset::<Test>::get(), 0);
-		System::assert_has_event(Event::VFE(crate::Event::GlobalEnergyRecoveryOccurred(8)));
+		System::assert_has_event(Event::VFE(crate::Event::GlobalEnergyRecoveryOccurred {
+			block_number: 8,
+		}));
 		run_to_block(17);
 		assert_eq!(LastEnergyRecovery::<Test>::get(), 16);
 		assert_eq!(LastDailyEarnedReset::<Test>::get(), 0);
-		System::assert_has_event(Event::VFE(crate::Event::GlobalEnergyRecoveryOccurred(16)));
+		System::assert_has_event(Event::VFE(crate::Event::GlobalEnergyRecoveryOccurred {
+			block_number: 16,
+		}));
 		run_to_block(20);
 		assert_eq!(LastEnergyRecovery::<Test>::get(), 16);
 		run_to_block(25);
 		assert_eq!(LastEnergyRecovery::<Test>::get(), 24);
 		assert_eq!(LastDailyEarnedReset::<Test>::get(), 24);
-		System::assert_has_event(Event::VFE(crate::Event::GlobalDailyEarnedResetOccurred(24)));
+		System::assert_has_event(Event::VFE(crate::Event::GlobalDailyEarnedResetOccurred {
+			block_number: 24,
+		}));
 		run_to_block(9889);
 		let last_update =
 			9889u64.saturating_div(EnergyRecoveryDuration::get()) * EnergyRecoveryDuration::get();
 		assert_eq!(LastEnergyRecovery::<Test>::get(), last_update);
 		assert_eq!(LastDailyEarnedReset::<Test>::get(), last_update);
-		System::assert_has_event(Event::VFE(crate::Event::GlobalEnergyRecoveryOccurred(9888)));
-		System::assert_has_event(Event::VFE(crate::Event::GlobalDailyEarnedResetOccurred(9888)));
+		System::assert_has_event(Event::VFE(crate::Event::GlobalEnergyRecoveryOccurred {
+			block_number: 9888,
+		}));
+		System::assert_has_event(Event::VFE(crate::Event::GlobalDailyEarnedResetOccurred {
+			block_number: 9888,
+		}));
 	});
 }
 
@@ -601,7 +624,10 @@ fn user_restore_unit_test() {
 		run_to_block(9);
 
 		assert_ok!(VFE::user_restore(Origin::signed(user.clone())));
-		System::assert_has_event(Event::VFE(crate::Event::UserEnergyRestored(user.clone(), 2)));
+		System::assert_has_event(Event::VFE(crate::Event::UserEnergyRestored {
+			who: user.clone(),
+			restored_amount: 2,
+		}));
 		let user_data = Users::<Test>::get(&user).expect("cannot find user");
 		// println!("user data: {:?}", user_data);
 		assert_eq!(user_data.energy, 4);
@@ -610,7 +636,10 @@ fn user_restore_unit_test() {
 		//after repeatedly global energy recovery occurred
 		run_to_block(229);
 		assert_ok!(VFE::user_restore(Origin::signed(user.clone())));
-		System::assert_has_event(Event::VFE(crate::Event::UserEnergyRestored(user.clone(), 4)));
+		System::assert_has_event(Event::VFE(crate::Event::UserEnergyRestored {
+			who: user.clone(),
+			restored_amount: 4,
+		}));
 		let user_data = Users::<Test>::get(&user).expect("cannot find user");
 		assert_eq!(user_data.energy, 8);
 		assert!(user_data.earned == 0);
@@ -644,13 +673,13 @@ fn restore_power_unit_test() {
 		));
 
 		assert_ok!(VFE::restore_power(Origin::signed(user.clone()), 1, 1, 3));
-		System::assert_has_event(Event::VFE(crate::Event::PowerRestored(
-			user.clone(),
-			3,
-			2100000,
-			1,
-			1,
-		)));
+		System::assert_has_event(Event::VFE(crate::Event::PowerRestored {
+			owner: user.clone(),
+			charge_amount: 3,
+			use_amount: 2100000,
+			brand_id: 1,
+			item_id: 1,
+		}));
 
 		let vfe_data = VFEDetails::<Test>::get(1, 1).expect("cannot find vfe detail");
 		assert_eq!(vfe_data.remaining_battery, 97);
@@ -701,7 +730,12 @@ fn level_up_unit_test() {
 		//issue some asset to user, then level up VFE
 		assert_ok!(Currencies::mint_into(1, &user, 90000000));
 		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 1));
-		System::assert_has_event(Event::VFE(crate::Event::VFELevelUp(1, 1, 1, 18200000)));
+		System::assert_has_event(Event::VFE(crate::Event::VFELevelUp {
+			brand_id: 1,
+			item_id: 1,
+			level_up: 1,
+			cost: 18200000,
+		}));
 		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
 		assert_eq!(vfe.level, 1);
 		assert_eq!(vfe.available_points, 4);
@@ -711,7 +745,12 @@ fn level_up_unit_test() {
 		assert_eq!(user_info.earning_cap, 1000 * 100000);
 
 		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 3));
-		System::assert_has_event(Event::VFE(crate::Event::VFELevelUp(1, 1, 3, 51800000)));
+		System::assert_has_event(Event::VFE(crate::Event::VFELevelUp {
+			brand_id: 1,
+			item_id: 1,
+			level_up: 3,
+			cost: 51800000,
+		}));
 		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
 		assert_eq!(vfe.level, 4);
 		assert_eq!(vfe.available_points, 16);
@@ -765,7 +804,10 @@ fn increase_ability_unit_test() {
 
 		let add_point = VFEAbility { efficiency: 3, skill: 4, luck: 3, durable: 4 };
 		assert_ok!(VFE::increase_ability(Origin::signed(user.clone()), 1, 1, add_point));
-		System::assert_has_event(Event::VFE(crate::Event::VFEAbilityIncreased(1, 1)));
+		System::assert_has_event(Event::VFE(crate::Event::VFEAbilityIncreased {
+			brand_id: 1,
+			item_id: 1,
+		}));
 
 		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
 		assert_eq!(vfe.level, 4);

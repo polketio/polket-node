@@ -243,80 +243,128 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// set incentive token. \[asset_id\]
-		IncentiveTokenSet(AssetIdOf<T>),
+		/// set incentive token.
+		IncentiveTokenSet { asset_id: AssetIdOf<T> },
 
-		/// Register Producer. \[creater, producer_id\]
-		ProducerRegister(T::AccountId, T::ObjectId),
+		/// Register Producer.
+		ProducerRegister { who: T::AccountId, producer_id: T::ObjectId },
 
-		/// producer change the owner  \[former_owner, producer_id,  new_owner\]
-		ProducerOwnerChanged(T::AccountId, T::ObjectId, T::AccountId),
+		/// producer change the owner.
+		ProducerOwnerChanged {
+			old_owner: T::AccountId,
+			producer_id: T::ObjectId,
+			new_owner: T::AccountId,
+		},
 
-		/// Created device type class. \[executor, class_id, sport_type, note\]
-		VFEBrandCreated(T::AccountId, T::CollectionId, SportType, VFERarity, Vec<u8>),
+		/// Created device type class.
+		VFEBrandCreated {
+			who: T::AccountId,
+			brand_id: T::CollectionId,
+			sport_type: SportType,
+			rarity: VFERarity,
+			note: Vec<u8>,
+		},
 
-		/// Register device. \[operator, producer_id, public_key,  class\]
-		DeviceRegistered(T::AccountId, T::ObjectId, DeviceKey, T::CollectionId),
+		/// Register device.
+		DeviceRegistered {
+			operator: T::AccountId,
+			producer_id: T::ObjectId,
+			device_key: DeviceKey,
+			brand_id: T::CollectionId,
+		},
 
-		/// deregister device. \[operator, public_key\]
-		DeviceDeregistered(T::AccountId, DeviceKey),
+		/// deregister device.
+		DeviceDeregistered { operator: T::AccountId, device_key: DeviceKey },
 
-		/// Create VFE. \[owner, VFE_detail\]
-		VFECreated(T::AccountId, VFEDetail<T::CollectionId, T::ItemId, T::Hash, T::BlockNumber>),
+		/// Create VFE.
+		VFECreated {
+			owner: T::AccountId,
+			detail: VFEDetail<T::CollectionId, T::ItemId, T::Hash, T::BlockNumber>,
+		},
 
-		/// Minted Art Toy vfe token. \[class, instance, owner\]
-		Issued(T::CollectionId, T::ItemId, T::AccountId),
+		/// Minted Art Toy vfe token.
+		Issued { brand_id: T::CollectionId, item_id: T::ItemId, owner: T::AccountId },
 
-		/// An asset `instance` was transferred. \[ class, instance, from, to \]
-		Transferred(T::CollectionId, T::ItemId, T::AccountId, T::AccountId),
+		/// An asset `instance` was transferred.
+		Transferred {
+			brand_id: T::CollectionId,
+			item_id: T::ItemId,
+			from: T::AccountId,
+			to: T::AccountId,
+		},
 
-		/// An asset `instance` was destroyed. \[ class, instance, owner \]
-		Burned(T::CollectionId, T::ItemId, T::AccountId),
+		/// An asset `instance` was destroyed.
+		Burned { brand_id: T::CollectionId, item_id: T::ItemId, owner: T::AccountId },
 
-		/// Bind the device with vfe. \[ owner,public_key, class, instance  \]
-		DeviceBound(T::AccountId, DeviceKey, T::CollectionId, T::ItemId),
+		/// Bind the device with vfe.
+		DeviceBound {
+			owner: T::AccountId,
+			device_key: DeviceKey,
+			brand_id: T::CollectionId,
+			item_id: T::ItemId,
+		},
 
-		/// UnBind the device with vfe. \[ owner,public_key, class,former instance  \]
-		DeviceUnbound(T::AccountId, DeviceKey, T::CollectionId, T::ItemId),
+		/// UnBind the device with vfe.
+		DeviceUnbound {
+			owner: T::AccountId,
+			device_key: DeviceKey,
+			brand_id: T::CollectionId,
+			item_id: T::ItemId,
+		},
 
-		/// Training reports and rewards with vfe. \[ owner, brand_id, item_id, sport_type,
-		/// training_time, training_duration, training_count, energy_used, asset_id, rewards \]
-		TrainingReportsAndRewards(
-			T::AccountId,
-			T::CollectionId,
-			T::ItemId,
-			SportType,
-			u32,
-			u16,
-			u16,
-			u16,
-			AssetIdOf<T>,
-			BalanceOf<T>,
-		),
+		/// Training reports and rewards with vfe.
+		TrainingReportsAndRewards {
+			owner: T::AccountId,
+			brand_id: T::CollectionId,
+			item_id: T::ItemId,
+			sport_type: SportType,
+			training_time: u32,
+			training_duration: u16,
+			training_count: u16,
+			energy_used: u16,
+			asset_id: AssetIdOf<T>,
+			rewards: BalanceOf<T>,
+		},
 
-		/// PowerRecovery from device with vfe. \[ owner, use_amount, class, instance  \]
-		PowerRestored(T::AccountId, u16, BalanceOf<T>, T::CollectionId, T::ItemId),
+		/// PowerRecovery from device with vfe.
+		PowerRestored {
+			owner: T::AccountId,
+			charge_amount: u16,
+			use_amount: BalanceOf<T>,
+			brand_id: T::CollectionId,
+			item_id: T::ItemId,
+		},
 
-		/// user energy restored. \[ owner, restored_amount \]
-		UserEnergyRestored(T::AccountId, u16),
+		/// user energy restored.
+		UserEnergyRestored { who: T::AccountId, restored_amount: u16 },
 
-		/// user daily earned reset. \[ owner \]
-		UserDailyEarnedReset(T::AccountId),
+		/// user daily earned reset.
+		UserDailyEarnedReset { who: T::AccountId },
 
-		/// ApprovedMint \[collection_id, product_id, mint_amount, mint_cost\]
-		ApprovedMint(T::CollectionId, T::ObjectId, u32, Option<(AssetIdOf<T>, BalanceOf<T>)>),
+		/// Approved mint.
+		ApprovedMint {
+			brand_id: T::CollectionId,
+			product_id: T::ObjectId,
+			mint_amount: u32,
+			mint_cost: Option<(AssetIdOf<T>, BalanceOf<T>)>,
+		},
 
-		/// Global energy recovery has occurred \[block_number\]
-		GlobalEnergyRecoveryOccurred(T::BlockNumber),
+		/// Global energy recovery has occurred.
+		GlobalEnergyRecoveryOccurred { block_number: T::BlockNumber },
 
-		/// Global daily reset has occurred \[block_number\]
-		GlobalDailyEarnedResetOccurred(T::BlockNumber),
+		/// Global daily reset has occurred.
+		GlobalDailyEarnedResetOccurred { block_number: T::BlockNumber },
 
-		/// the VFE has been level up. \[ class, instance, number of level up, leve up cost\]
-		VFELevelUp(T::CollectionId, T::ItemId, u16, BalanceOf<T>),
+		/// the VFE has been level up.
+		VFELevelUp {
+			brand_id: T::CollectionId,
+			item_id: T::ItemId,
+			level_up: u16,
+			cost: BalanceOf<T>,
+		},
 
-		/// the VFE ability is increased. \[ class, instance\]
-		VFEAbilityIncreased(T::CollectionId, T::ItemId),
+		/// the VFE ability is increased.
+		VFEAbilityIncreased { brand_id: T::CollectionId, item_id: T::ItemId },
 	}
 
 	// Errors inform users that something went wrong.
@@ -384,6 +432,8 @@ pub mod pallet {
 		LowBattery,
 		/// training report time is expired
 		TrainingReportTimeExpired,
+		/// Training report out of normal range
+		TrainingReportOutOfNormalRange,
 	}
 
 	#[pallet::hooks]
@@ -393,14 +443,14 @@ pub mod pallet {
 			if (n % T::EnergyRecoveryDuration::get()).is_zero() {
 				//update
 				LastEnergyRecovery::<T>::put(n);
-				Self::deposit_event(Event::GlobalEnergyRecoveryOccurred(n));
+				Self::deposit_event(Event::GlobalEnergyRecoveryOccurred { block_number: n });
 				weight = weight + T::DbWeight::get().writes(1);
 			}
 
 			if (n % T::DailyEarnedResetDuration::get()).is_zero() {
 				//update
 				LastDailyEarnedReset::<T>::put(n);
-				Self::deposit_event(Event::GlobalDailyEarnedResetOccurred(n));
+				Self::deposit_event(Event::GlobalDailyEarnedResetOccurred { block_number: n });
 				weight = weight + T::DbWeight::get().writes(1);
 			}
 
@@ -421,7 +471,7 @@ pub mod pallet {
 		pub fn set_incentive_token(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			IncentiveToken::<T>::put(asset_id);
-			Self::deposit_event(Event::IncentiveTokenSet(asset_id));
+			Self::deposit_event(Event::IncentiveTokenSet { asset_id });
 			Ok(())
 		}
 
@@ -440,7 +490,7 @@ pub mod pallet {
 				Producer { owner: who.clone(), id: index.clone() },
 			);
 
-			Self::deposit_event(Event::ProducerRegister(who, index));
+			Self::deposit_event(Event::ProducerRegister { who, producer_id: index });
 			Ok(())
 		}
 
@@ -470,7 +520,11 @@ pub mod pallet {
 			Producers::<T>::insert(id, producer);
 
 			// save it to event
-			Self::deposit_event(Event::ProducerOwnerChanged(owner, id, new_owner));
+			Self::deposit_event(Event::ProducerOwnerChanged {
+				old_owner: owner,
+				producer_id: id,
+				new_owner,
+			});
 
 			Ok(())
 		}
@@ -516,13 +570,13 @@ pub mod pallet {
 				},
 			);
 
-			Self::deposit_event(Event::VFEBrandCreated(
+			Self::deposit_event(Event::VFEBrandCreated {
 				who,
-				brand_id.into(),
+				brand_id: brand_id.into(),
 				sport_type,
 				rarity,
-				Vec::<u8>::from(meta_data),
-			));
+				note: Vec::<u8>::from(meta_data),
+			});
 
 			Ok(())
 		}
@@ -616,7 +670,12 @@ pub mod pallet {
 
 					*maybe_approved = Some(approved);
 
-					Self::deposit_event(Event::DeviceRegistered(who, producer_id, puk, brand_id));
+					Self::deposit_event(Event::DeviceRegistered {
+						operator: who,
+						producer_id,
+						device_key: puk,
+						brand_id,
+					});
 
 					Ok(())
 				},
@@ -665,7 +724,7 @@ pub mod pallet {
 				//remove device from store
 				*maybe_device = None;
 				//emit event
-				Self::deposit_event(Event::DeviceDeregistered(who, puk));
+				Self::deposit_event(Event::DeviceDeregistered { operator: who, device_key: puk });
 				Ok(())
 			})
 		}
@@ -705,7 +764,7 @@ pub mod pallet {
 					// create the new instance
 					let mut vfe = Self::create_vfe(&device.brand_id, &device.producer_id, &from)?;
 					vfe.device_key = Some(puk);
-					Self::deposit_event(Event::VFECreated(from.clone(), vfe));
+					Self::deposit_event(Event::VFECreated { owner: from.clone(), detail: vfe });
 					vfe
 				},
 			};
@@ -717,12 +776,12 @@ pub mod pallet {
 			device.status = DeviceStatus::Activated;
 			// save device
 			Devices::<T>::insert(puk, device);
-			Self::deposit_event(Event::DeviceBound(
-				from,
-				puk.clone(),
-				device.brand_id,
-				vfe.item_id,
-			));
+			Self::deposit_event(Event::DeviceBound {
+				owner: from,
+				device_key: puk.clone(),
+				brand_id: device.brand_id,
+				item_id: vfe.item_id,
+			});
 
 			Ok(())
 		}
@@ -751,7 +810,12 @@ pub mod pallet {
 			VFEDetails::<T>::insert(&brand_id, &item_id, vfe);
 			// VFEBindDevices::<T>::remove(&brand_id, &item_id);
 
-			Self::deposit_event(Event::DeviceUnbound(who, device_pk, device.brand_id, item_id));
+			Self::deposit_event(Event::DeviceUnbound {
+				owner: who,
+				device_key: device_pk,
+				brand_id: device.brand_id,
+				item_id,
+			});
 
 			Ok(())
 		}
@@ -830,13 +894,13 @@ pub mod pallet {
 			// save common_prize
 			VFEDetails::<T>::insert(brand_id.clone(), item.clone(), vfe);
 
-			Self::deposit_event(Event::PowerRestored(
+			Self::deposit_event(Event::PowerRestored {
 				owner,
-				charge_num,
-				total_charge_cost,
+				charge_amount: charge_num,
+				use_amount: total_charge_cost,
 				brand_id,
-				item,
-			));
+				item_id: item,
+			});
 			Ok(())
 		}
 
@@ -910,7 +974,12 @@ pub mod pallet {
 				Users::<T>::insert(&who, user);
 
 				// emit event
-				Self::deposit_event(Event::VFELevelUp(brand_id, item_id, level_up, level_cost));
+				Self::deposit_event(Event::VFELevelUp {
+					brand_id,
+					item_id,
+					level_up,
+					cost: level_cost,
+				});
 
 				//todo: VFE level up requires a cooldown.
 
@@ -951,7 +1020,7 @@ pub mod pallet {
 				*maybe_vfe = Some(vfe);
 
 				// emit event
-				Self::deposit_event(Event::VFEAbilityIncreased(brand_id, item_id));
+				Self::deposit_event(Event::VFEAbilityIncreased { brand_id, item_id });
 
 				Ok(())
 			})
@@ -984,7 +1053,7 @@ pub mod pallet {
 				item_id.clone(),
 				dest,
 			)?;
-			Self::deposit_event(Event::Transferred(brand_id, item_id, from, to));
+			Self::deposit_event(Event::Transferred { brand_id, item_id, from, to });
 			Ok(())
 		}
 	}
@@ -1006,7 +1075,7 @@ where
 		owner: T::AccountId,
 	) -> DispatchResult {
 		pallet_uniques::Pallet::<T, T::UniquesInstance>::mint_into(&brand_id, &item_id, &owner)?;
-		Self::deposit_event(Event::Issued(brand_id, item_id, owner));
+		Self::deposit_event(Event::Issued { brand_id, item_id, owner });
 		Ok(())
 	}
 
@@ -1015,7 +1084,7 @@ where
 		<pallet_uniques::Pallet<T, T::UniquesInstance> as Mutate<T::AccountId>>::burn(
 			&brand_id, &item_id, None,
 		)?;
-		Self::deposit_event(Event::Burned(brand_id, item_id, owner));
+		Self::deposit_event(Event::Burned { brand_id, item_id, owner });
 		Ok(())
 	}
 
@@ -1214,6 +1283,8 @@ where
 				};
 
 				let f = sport_type.is_frequency_range(training_report.average_speed);
+				ensure!(f > 0, Error::<T>::TrainingReportOutOfNormalRange);
+
 				let e = vfe.current_ability.efficiency;
 
 				let training_volume = (e + s + 2 * r_luck) * power_used * f;
@@ -1240,18 +1311,18 @@ where
 					IncentiveToken::<T>::get().ok_or(Error::<T>::IncentiveTokenNotSet)?;
 				T::Currencies::mint_into(reward_asset_id, &account.clone(), actual_award.clone())?;
 
-				Self::deposit_event(Event::TrainingReportsAndRewards(
-					account,
+				Self::deposit_event(Event::TrainingReportsAndRewards {
+					owner: account,
 					brand_id,
 					item_id,
 					sport_type,
-					training_report.timestamp,
-					training_report.jump_rope_duration,
-					training_report.total_jump_rope_count,
-					power_used,
-					reward_asset_id,
-					actual_award,
-				));
+					training_time: training_report.timestamp,
+					training_duration: training_report.jump_rope_duration,
+					training_count: training_report.total_jump_rope_count,
+					energy_used: power_used,
+					asset_id: reward_asset_id,
+					rewards: actual_award,
+				});
 
 				Ok(())
 			},
@@ -1373,12 +1444,12 @@ where
 			*maybe_approved = Some(approved);
 
 			VFEBrands::<T>::insert(&brand_id, vfe_brand);
-			Self::deposit_event(Event::ApprovedMint(
+			Self::deposit_event(Event::ApprovedMint {
 				brand_id,
-				producer_id.to_owned(),
+				product_id: producer_id.to_owned(),
 				mint_amount,
 				mint_cost,
-			));
+			});
 
 			Ok(())
 		})
@@ -1462,7 +1533,7 @@ where
 			//todo: reset user earned
 
 			Users::<T>::insert(&who, user);
-			Self::deposit_event(Event::UserEnergyRestored(who.to_owned(), restored_amount));
+			Self::deposit_event(Event::UserEnergyRestored { who: who.to_owned(), restored_amount });
 		}
 
 		Ok(())
@@ -1478,7 +1549,7 @@ where
 			user.earned = Zero::zero();
 			user.last_earned_reset_block = last_daily_earned_reset;
 			Users::<T>::insert(&who, user);
-			Self::deposit_event(Event::UserDailyEarnedReset(who.to_owned()));
+			Self::deposit_event(Event::UserDailyEarnedReset { who: who.to_owned() });
 		}
 		Ok(())
 	}
