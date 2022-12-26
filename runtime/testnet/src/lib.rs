@@ -107,7 +107,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("polket"),
 	impl_name: create_runtime_str!("polket"),
 	authoring_version: 1,
-	spec_version: 14,
+	spec_version: 17,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -654,12 +654,12 @@ parameter_types! {
 	pub const InitEarningCap: u16 = 500;
 	pub const EnergyRecoveryRatio: Permill = Permill::from_percent(25);
 	pub const ReportValidityPeriod: u32 = 24 * 60 * 60 * 1000; // 24 hours
+	pub const UserVFEMintedProfitRatio: Permill = Permill::from_percent(30); //30%
 }
 
 impl pallet_vfe::Config for Runtime {
 	type Event = Event;
 	type BrandOrigin = EnsureSigned<AccountId>;
-	// type ProducerOrigin = EnsureIdentity<Self::AccountId, IdentityRoleProducer, IdentityExtra>;
 	type ProducerOrigin = EnsureSigned<AccountId>;
 	type ProducerId = ProducerId;
 	type VFEBrandId = VFEBrandId;
@@ -679,6 +679,7 @@ impl pallet_vfe::Config for Runtime {
 	type EnergyRecoveryRatio = EnergyRecoveryRatio;
 	type UnixTime = Timestamp;
 	type ReportValidityPeriod = ReportValidityPeriod;
+	type UserVFEMintedProfitRatio = UserVFEMintedProfitRatio;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -711,7 +712,7 @@ construct_runtime!(
 		IdentityExtra: pallet_identity_extra::{Pallet, Call, Storage, Event<T>},
 		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
-		VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>},
+		VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 		// Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
 	}
 );

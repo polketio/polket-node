@@ -29,7 +29,7 @@ use frame_support::{
 	transactional, PalletId,
 };
 
-use frame_system::{pallet_prelude::*, RawOrigin};
+use frame_system::pallet_prelude::*;
 
 use bitcoin_hashes::Hash as OtherHash;
 use frame_support::traits::fungibles;
@@ -46,7 +46,7 @@ use sp_runtime::{
 		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedSub, One,
 		Saturating, StaticLookup, Zero,
 	},
-	Permill, SaturatedConversion,
+	ModuleError, Permill, SaturatedConversion,
 };
 use sp_std::{
 	borrow::ToOwned,
@@ -87,8 +87,8 @@ pub mod pallet {
 		///  Who can create VFE brand
 		type BrandOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 
-		/// Who can register device and mint VFEs
-		type ProducerOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
+		/// The origin which may add or remove producer. Root can always do this.
+		type ProducerOrigin: EnsureOrigin<Self::Origin>;
 
 		/// Multiple asset types
 		type Currencies: MultiAssets<Self::AccountId>
@@ -157,6 +157,10 @@ pub mod pallet {
 		/// How long is the training report valid, unit: seconds
 		#[pallet::constant]
 		type ReportValidityPeriod: Get<u32>;
+
+		/// Profit ratio of minting fee to VFE owner
+		#[pallet::constant]
+		type UserVFEMintedProfitRatio: Get<Permill>;
 	}
 
 	#[pallet::pallet]
@@ -479,11 +483,11 @@ pub mod pallet {
 		/// - origin AccountId -creater
 		#[pallet::weight(10_000)]
 		#[transactional]
-		pub fn producer_register(origin: OriginFor<T>) -> DispatchResult {
-			// Get identity role of origin
-			let who = T::ProducerOrigin::ensure_origin(origin.clone())?;
+		pub fn producer_register(origin: OriginFor<T>, who: T::AccountId) -> DispatchResult {
+			// check if origin can register `who` to be a producer
+			T::ProducerOrigin::ensure_origin(origin.clone())?;
+			// auto increase ID
 			let index = T::UniqueId::generate_object_id(T::ProducerId::get())?;
-			// let account_id = Self::into_account_id(index.clone());
 
 			Producers::<T>::insert(
 				index.clone(),
@@ -504,22 +508,14 @@ pub mod pallet {
 			new_owner: <T::Lookup as StaticLookup>::Source,
 		) -> DispatchResult {
 			// Get identity role of origin
-			let owner = T::ProducerOrigin::ensure_origin(origin.clone())?;
-
+			let owner = ensure_signed(origin)?;
 			let new_owner = T::Lookup::lookup(new_owner)?;
-
-			// check the role if it meets the rules
-			T::ProducerOrigin::ensure_origin(RawOrigin::Signed(new_owner.clone()).into())
-				.map_err(|_| Error::<T>::RoleInvalid)?;
-
 			let mut producer = Self::check_producer(owner.clone(), id.clone())?;
-
 			// change the new owner
 			producer.owner = new_owner.clone();
-
 			Producers::<T>::insert(id, producer);
 
-			// save it to event
+			// emit event
 			Self::deposit_event(Event::ProducerOwnerChanged {
 				old_owner: owner,
 				producer_id: id,
@@ -612,7 +608,7 @@ pub mod pallet {
 			producer_id: T::ObjectId,
 			brand_id: T::CollectionId,
 		) -> DispatchResult {
-			let who = T::ProducerOrigin::ensure_origin(origin.clone())?;
+			let who = ensure_signed(origin)?;
 			ensure!(!Devices::<T>::contains_key(puk), Error::<T>::DeviceExisted);
 			let producer = Self::check_producer(who.clone(), producer_id)?;
 			let vfe_brand =
@@ -689,8 +685,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn deregister_device(origin: OriginFor<T>, puk: DeviceKey) -> DispatchResult {
 			// deregister device only the producer of device
-			let who = T::ProducerOrigin::ensure_origin(origin.clone())?;
-
+			let who = ensure_signed(origin.clone())?;
 			Devices::<T>::try_mutate_exists(puk, |maybe_device| -> DispatchResult {
 				let device = maybe_device.take().ok_or(Error::<T>::DeviceNotExisted)?;
 				//check device status should Registered
@@ -734,18 +729,31 @@ pub mod pallet {
 		#[transactional]
 		pub fn bind_device(
 			origin: OriginFor<T>,
+			from: T::AccountId,
 			puk: DeviceKey,
 			signature: BoundedVec<u8, T::StringLimit>,
 			nonce: u32,
 			bind_item: Option<T::ItemId>,
 		) -> DispatchResult {
-			let from = ensure_signed(origin.clone())?;
+			ensure_none(origin)?;
 			//  bind device signature
-			let mut device = Self::check_device_pub(from.clone(), puk, signature, nonce)?;
+			let mut device = Self::get_verified_device(from.clone(), puk, signature, nonce)?;
 			ensure!(device.item_id.is_none(), Error::<T>::DeviceBond);
 			// create the user if it is new
 			Self::create_new_user(from.clone());
 
+			//If it is a registered device, it will mint a new vfe for the user.
+			let new_vfe = if device.status == DeviceStatus::Registered {
+				let vfe = Self::create_vfe(&device.brand_id, &device.producer_id, &from)?;
+				// save new vfe detail
+				VFEDetails::<T>::insert(&vfe.brand_id, &vfe.item_id, vfe.clone());
+				Self::deposit_event(Event::VFECreated { owner: from.clone(), detail: vfe });
+				Some(vfe)
+			} else {
+				None
+			};
+
+			// If the user passes itemId, bind this itemId, if not, bind a new vfe.
 			let vfe = match bind_item {
 				Some(item_id) => {
 					//check if item_id is belong to origin
@@ -759,19 +767,19 @@ pub mod pallet {
 					vfe
 				},
 				None => {
-					//check if device status is register, then create new vfe.
-					ensure!(device.status == DeviceStatus::Registered, Error::<T>::DeviceBond);
-					// create the new instance
-					let mut vfe = Self::create_vfe(&device.brand_id, &device.producer_id, &from)?;
+					//check if device status is register, we can get a new vfe to bind.
+					let mut vfe = new_vfe.ok_or(Error::<T>::DeviceBond)?;
 					vfe.device_key = Some(puk);
 					Self::deposit_event(Event::VFECreated { owner: from.clone(), detail: vfe });
+
 					vfe
 				},
 			};
 
-			// save vfe detail
+			// save vfe detail after bond
 			VFEDetails::<T>::insert(&vfe.brand_id, &vfe.item_id, vfe.clone());
 
+			device.nonce = nonce;
 			device.item_id = Some(vfe.item_id);
 			device.status = DeviceStatus::Activated;
 			// save device
@@ -833,13 +841,12 @@ pub mod pallet {
 			report_sig: BoundedVec<u8, T::StringLimit>,
 			report_data: BoundedVec<u8, T::StringLimit>,
 		) -> DispatchResult {
-			let from = ensure_signed(origin.clone())?;
-
+			ensure_none(origin)?;
 			let mut device =
-				Self::check_device_data(from.clone(), device_pk, report_sig, report_data.clone())?;
+				Self::check_device_training_report(device_pk, report_sig, report_data.clone())?;
 
 			// decode the msg and earn the award
-			Self::handler_report_data(&mut device, from, report_data)?;
+			Self::handler_report_data(&mut device, report_data)?;
 			Ok(())
 		}
 
@@ -1057,6 +1064,75 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T>
+	where
+		T::CollectionId: From<T::ObjectId>,
+		T::ItemId: From<T::ObjectId>,
+		T::ObjectId: From<T::CollectionId>,
+	{
+		type Call = Call<T>;
+
+		/// Validate unsigned call to this module.
+		///
+		/// By default unsigned transactions are disallowed, but implementing the validator
+		/// here we make sure that some particular calls (the ones produced by offchain worker)
+		/// are being whitelisted and marked as valid.
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			const UNSIGNED_TXS_PRIORITY: u64 = 100;
+			let valid_device_tx = |provide| {
+				ValidTransaction::with_tag_prefix("VFEDevice")
+					.priority(UNSIGNED_TXS_PRIORITY)
+					.and_provides([&provide])
+					.longevity(TransactionLongevity::max_value())
+					.propagate(true)
+					.build()
+			};
+			// let valid_user_tx = |provide| {
+			// 	ValidTransaction::with_tag_prefix("VFEUser")
+			// 		.priority(UNSIGNED_TXS_PRIORITY)
+			// 		.and_provides([&provide])
+			// 		.longevity(TransactionLongevity::max_value())
+			// 		.propagate(true)
+			// 		.build()
+			// };
+
+			match call.to_owned() {
+				Call::bind_device { from, puk, signature, nonce, bind_item: _bind_item } => {
+					Self::get_verified_device(from, puk, signature.clone(), nonce)
+						.map_err(dispatch_error_to_invalid)?;
+					valid_device_tx((puk, signature))
+				},
+				Call::upload_training_report { device_pk, report_sig, report_data } => {
+					Self::check_device_training_report(
+						device_pk.clone(),
+						report_sig.clone(),
+						report_data,
+					)
+					.map_err(dispatch_error_to_invalid)?;
+					valid_device_tx((device_pk, report_sig))
+				},
+
+				// Call::user_restore { who } => {
+				// 	let user = Users::<T>::get(&who).ok_or(InvalidTransaction::BadSigner)?;
+				// 	if user.energy == user.energy_total {
+				// 		// Enough energy does not need to be restored.
+				// 		return InvalidTransaction::Call.into()
+				// 	}
+				// 	let user_last_restore_block = user.last_restore_block;
+				// 	let last_energy_recovery = LastEnergyRecovery::<T>::get();
+				// 	if user_last_restore_block >= last_energy_recovery {
+				// 		// Recoverable time has not yet been reached.
+				// 		return InvalidTransaction::Future.into()
+				// 	}
+				// 	let now = frame_system::Pallet::<T>::block_number();
+				// 	valid_user_tx((who, now))
+				// },
+				_ => InvalidTransaction::Call.into(),
+			}
+		}
+	}
 }
 
 impl<T: Config> Pallet<T>
@@ -1149,8 +1225,8 @@ where
 		return Ok(flag)
 	}
 
-	// check the device's public key.
-	fn check_device_pub(
+	// verifty the device binding signature and return device.
+	fn get_verified_device(
 		account: T::AccountId,
 		puk: DeviceKey,
 		signature: BoundedVec<u8, T::StringLimit>,
@@ -1160,27 +1236,21 @@ where
 		DispatchError,
 	> {
 		// get the producer owner
-		let mut device = Devices::<T>::get(puk.clone()).ok_or(Error::<T>::DeviceNotExisted)?;
+		let device = Devices::<T>::get(puk.clone()).ok_or(Error::<T>::DeviceNotExisted)?;
 
 		ensure!(device.status != DeviceStatus::Voided, Error::<T>::DeviceVoided);
 
-		let flag = Self::verify_bind_device_message(account, nonce.clone(), puk, &signature[..])?;
+		let flag = Self::verify_bind_device_message(account, nonce, puk, &signature[..])?;
 
 		ensure!(flag, Error::<T>::DeviceSignatureInvalid);
-
 		// check the nonce
 		ensure!(nonce > device.nonce, Error::<T>::NonceMustGreatThanBefore);
-
-		device.nonce = nonce;
-
-		Devices::<T>::insert(&puk, device);
 
 		Ok(device)
 	}
 
-	// check the device's public key.
-	fn check_device_data(
-		account: T::AccountId,
+	// check the device's training report.
+	fn check_device_training_report(
 		puk: DeviceKey,
 		req_sig: BoundedVec<u8, T::StringLimit>,
 		msg: BoundedVec<u8, T::StringLimit>,
@@ -1191,12 +1261,7 @@ where
 		// get the producer owner
 		let device = Devices::<T>::get(puk).ok_or(Error::<T>::DeviceNotExisted)?;
 
-		let instance = device.item_id.ok_or(Error::<T>::DeviceNotBond)?;
-
-		let device_owner =
-			Self::owner(&device.brand_id, &instance).ok_or(Error::<T>::ItemNotFound)?;
-
-		ensure!(account == device_owner, Error::<T>::OperationIsNotAllowed);
+		ensure!(device.item_id.is_some(), Error::<T>::DeviceNotBond);
 
 		let target = &req_sig[..];
 		let sig = Signature::from_bytes(target).map_err(|_| Error::<T>::DeviceSignatureInvalid)?;
@@ -1216,12 +1281,12 @@ where
 	// handler report data to get rewards
 	fn handler_report_data(
 		device: &mut Device<T::CollectionId, T::ItemId, T::ObjectId, AssetIdOf<T>, BalanceOf<T>>,
-		account: T::AccountId,
 		report_data: BoundedVec<u8, T::StringLimit>,
 	) -> Result<(), DispatchError> {
 		let brand_id = device.brand_id;
 		let item_id = device.item_id.ok_or(Error::<T>::DeviceNotBond)?;
 		let sport_type = device.sport_type;
+		let account = Self::owner(&brand_id, &item_id).ok_or(Error::<T>::ItemNotFound)?;
 
 		match sport_type {
 			SportType::JumpRope => {
@@ -1340,7 +1405,6 @@ where
 		let producer = Producers::<T>::get(id).ok_or(Error::<T>::ProducerNotExist)?;
 		// check the machine owner
 		ensure!(owner == producer.owner, Error::<T>::OperationIsNotAllowed);
-
 		Ok(producer.into())
 	}
 
@@ -1480,12 +1544,25 @@ where
 
 				// mint_cost handle transfer
 				if let Some((mint_asset_id, mint_price)) = approved.mint_cost {
-					// transfer tokens to NFT class owner
+					let vfe_brand_owner_radio =
+						Permill::from_percent(100) - T::UserVFEMintedProfitRatio::get();
+					let vfe_brand_owner_profit = vfe_brand_owner_radio.mul(mint_price);
+					// transfer tokens to VFE brand owner
 					<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
 						mint_asset_id,
 						&Self::into_account_id(producer_id.to_owned()),
 						&vfe_brand_owner,
-						mint_price,
+						vfe_brand_owner_profit,
+						false,
+					)?;
+
+					// transfer tokens to VFE item of owner
+					let vfe_item_owner_profit = T::UserVFEMintedProfitRatio::get().mul(mint_price);
+					<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
+						mint_asset_id,
+						&Self::into_account_id(producer_id.to_owned()),
+						who,
+						vfe_item_owner_profit,
 						false,
 					)?;
 
@@ -1580,4 +1657,14 @@ where
 		let cap = base_cap * level + base_cap;
 		BalanceOf::<T>::saturated_from(cap).saturating_mul(T::CostUnit::get())
 	}
+}
+
+/// convert a DispatchError to a custom InvalidTransaction with the inner code being the error
+/// number.
+pub fn dispatch_error_to_invalid(error: DispatchError) -> InvalidTransaction {
+	let error_number = match error {
+		DispatchError::Module(ModuleError { error, .. }) => error[0],
+		_ => 0,
+	};
+	InvalidTransaction::Custom(error_number)
 }

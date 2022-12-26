@@ -14,7 +14,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	AccountId32, Permill,
 };
-use system::RawOrigin;
+use system::{RawOrigin, EnsureRoot};
 
 pub type AccountId = AccountId32;
 
@@ -180,14 +180,14 @@ impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>> Ensu
 }
 
 parameter_types! {
-	pub const ClassDeposit: u64 = 2;
-	pub const InstanceDeposit: u64 = 1;
+	pub const CollectionDeposit: u64 = 0;
+	pub const ItemDeposit: u64 = 0;
 	pub const KeyLimit: u32 = 50;
 	pub const ValueLimit: u32 = 50;
 	pub const StringLimit: u32 = 500000;
-	pub const MetadataDepositBase: u64 = 1;
-	pub const AttributeDepositBase: u64 = 1;
-	pub const MetadataDepositPerByte: u64 = 1;
+	pub const MetadataDepositBase: u64 = 0;
+	pub const AttributeDepositBase: u64 = 0;
+	pub const MetadataDepositPerByte: u64 = 0;
 }
 
 impl pallet_uniques::Config<Instance> for Test {
@@ -197,8 +197,8 @@ impl pallet_uniques::Config<Instance> for Test {
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type CollectionDeposit = ClassDeposit;
-	type ItemDeposit = InstanceDeposit;
+	type CollectionDeposit = CollectionDeposit;
+	type ItemDeposit = ItemDeposit;
 	type MetadataDepositBase = MetadataDepositBase;
 	type AttributeDepositBase = AttributeDepositBase;
 	type DepositPerByte = MetadataDepositPerByte;
@@ -244,12 +244,13 @@ parameter_types! {
 	pub const InitEarningCap: u16 = 500;
 	pub const EnergyRecoveryRatio: Permill = Permill::from_percent(25); //25%
 	pub const ReportValidityPeriod: u32 = 24 * 60 * 60;
+	pub const UserVFEMintedProfitRatio: Permill = Permill::from_percent(30); //30%
 }
 
 impl Config for Test {
 	type Event = Event;
 	type BrandOrigin = EnsureBrand<Self::AccountId>;
-	type ProducerOrigin = EnsureProducer<Self::AccountId>;
+	type ProducerOrigin = EnsureRoot<Self::AccountId>;
 	type ProducerId = ProducerId;
 	type VFEBrandId = VFEBrandId;
 	type ObjectId = u32;
@@ -268,12 +269,13 @@ impl Config for Test {
 	type EnergyRecoveryRatio = EnergyRecoveryRatio;
 	type UnixTime = Timestamp;
 	type ReportValidityPeriod = ReportValidityPeriod;
+	type UserVFEMintedProfitRatio = UserVFEMintedProfitRatio;
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(ALICE, 10000000000), (BOB, 10000000000), (CANDY, 10000000000)],
+		balances: vec![(ALICE, 10000000000), (BOB, 10000000000), (CANDY, 0)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

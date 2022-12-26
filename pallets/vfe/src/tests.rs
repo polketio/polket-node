@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::*;
-use crate::mock::{Event, *};
+use crate::{
+	mock::{Event, *},
+	Call,
+};
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use p256::{
@@ -47,7 +50,7 @@ fn produce_device_bind_vfe(
 	//set incentive token
 	assert_ok!(VFE::set_incentive_token(Origin::root(), 1));
 	// register producer
-	assert_ok!(VFE::producer_register(Origin::signed(producer.clone())));
+	assert_ok!(VFE::producer_register(Origin::root(), producer.clone()));
 	// create vfe brand
 	assert_ok!(VFE::create_vfe_brand(
 		Origin::signed(CANDY),
@@ -67,7 +70,8 @@ fn produce_device_bind_vfe(
 	let signature = key.sign(msg.as_ref());
 
 	assert_ok!(VFE::bind_device(
-		Origin::signed(user.clone()),
+		Origin::none(),
+		user.clone(),
 		pub_key,
 		signature.to_vec().try_into().unwrap(),
 		account_nonce,
@@ -80,40 +84,31 @@ fn set_incentive_token_unit_test() {
 	new_test_ext().execute_with(|| {
 		// wrong origin.
 		assert_noop!(VFE::set_incentive_token(Origin::signed(BOB), 1), DispatchError::BadOrigin);
-
 		assert_ok!(VFE::set_incentive_token(Origin::root(), 1));
-
 		System::assert_has_event(Event::VFE(crate::Event::IncentiveTokenSet { asset_id: 1 }));
-
 		let incentive_token = VFE::incentive_token().expect("incentive token not set");
 		assert_eq!(incentive_token, 1);
 	});
 }
 
 #[test]
-fn producer_register_should_work() {
+fn producer_register_unit_test() {
 	new_test_ext().execute_with(|| {
-		// Dispatch a signed extrinsic.
-		assert_ok!(VFE::producer_register(Origin::signed(ALICE)));
-
+		assert_ok!(VFE::producer_register(Origin::root(), ALICE));
 		System::assert_has_event(Event::VFE(crate::Event::ProducerRegister {
 			who: ALICE,
 			producer_id: 1,
 		}));
-
 		// wrong origin role.
-		assert_noop!(VFE::producer_register(Origin::signed(BOB)), DispatchError::BadOrigin);
+		assert_noop!(VFE::producer_register(Origin::signed(BOB), BOB), DispatchError::BadOrigin);
 	});
 }
 
 #[test]
-fn producer_owner_change_should_work() {
+fn producer_owner_change_unit_test() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(VFE::producer_register(Origin::signed(ALICE)));
-
-		// Dispatch a signed extrinsic.
+		assert_ok!(VFE::producer_register(Origin::root(), ALICE));
 		assert_ok!(VFE::producer_owner_change(Origin::signed(ALICE), 1, TOM));
-
 		System::assert_has_event(Event::VFE(crate::Event::ProducerOwnerChanged {
 			old_owner: ALICE,
 			producer_id: 1,
@@ -123,13 +118,7 @@ fn producer_owner_change_should_work() {
 		// wrong origin role.
 		assert_noop!(
 			VFE::producer_owner_change(Origin::signed(BOB), 1, ALICE),
-			DispatchError::BadOrigin
-		);
-
-		// RoleInvalid.
-		assert_noop!(
-			VFE::producer_owner_change(Origin::signed(TOM), 1, BOB),
-			Error::<Test>::RoleInvalid
+			Error::<Test>::OperationIsNotAllowed
 		);
 
 		// Operation is not allowed for producer.
@@ -143,6 +132,17 @@ fn producer_owner_change_should_work() {
 			VFE::producer_owner_change(Origin::signed(TOM), 2, ALICE),
 			Error::<Test>::ProducerNotExist
 		);
+
+		assert_ok!(VFE::producer_owner_change(Origin::signed(TOM), 1, BOB));
+		System::assert_has_event(Event::VFE(crate::Event::ProducerOwnerChanged {
+			old_owner: TOM,
+			producer_id: 1,
+			new_owner: BOB,
+		}));
+
+		let producer = Producers::<Test>::get(1).expect("can not find producer");
+		assert_eq!(producer.id, 1);
+		assert_eq!(producer.owner, BOB);
 	});
 }
 
@@ -175,7 +175,7 @@ fn create_vfe_brand_unit_test() {
 #[test]
 fn approve_mint_unit_test() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(VFE::producer_register(Origin::signed(ALICE)));
+		assert_ok!(VFE::producer_register(Origin::root(), ALICE));
 		assert_ok!(VFE::create_vfe_brand(
 			Origin::signed(CANDY),
 			bvec![0u8; 20],
@@ -208,7 +208,7 @@ fn approve_mint_unit_test() {
 fn register_device_unit_test() {
 	new_test_ext().execute_with(|| {
 		// register producer
-		assert_ok!(VFE::producer_register(Origin::signed(ALICE)));
+		assert_ok!(VFE::producer_register(Origin::root(), ALICE));
 
 		// create vfe brand
 		assert_ok!(VFE::create_vfe_brand(
@@ -252,7 +252,7 @@ fn register_device_unit_test() {
 			0,
 			&crate::Pallet::<Test>::into_account_id(1),
 		);
-		println!("producer_balance: {}", producer_balance);
+		// println!("producer_balance: {}", producer_balance);
 		assert_eq!(producer_balance, 10);
 
 		//deregister device
@@ -279,7 +279,7 @@ fn register_device_unit_test() {
 }
 
 #[test]
-fn bind_device_unit_test() {
+fn bind_device_should_work() {
 	new_test_ext().execute_with(|| {
 
 		// device keypair
@@ -289,27 +289,28 @@ fn bind_device_unit_test() {
 		let puk: DeviceKey = DeviceKey::from_raw(bytes);
 
 		// register producer
-		assert_ok!(VFE::producer_register(Origin::signed(ALICE)));
+		assert_ok!(VFE::producer_register(Origin::root(), ALICE));
 		// create vfe brand
 		assert_ok!(VFE::create_vfe_brand(Origin::signed(CANDY), bvec![0u8; 20], SportType::JumpRope, VFERarity::Common));
-		assert_ok!(VFE::approve_mint(Origin::signed(CANDY), 1, 1, 10, Some((0,10))));
+		assert_ok!(VFE::approve_mint(Origin::signed(CANDY), 1, 1, 10, Some((0,100))));
 		// register device
 		assert_ok!(VFE::register_device(Origin::signed(ALICE), puk, 1, 1));
 		let producer_balance = <Currencies as MultiAssets<AccountId>>::balance(0, &crate::Pallet::<Test>::into_account_id(1));
 		println!("producer_balance: {}", producer_balance);
-		assert_eq!(producer_balance, 10);
+		assert_eq!(producer_balance, 100);
 
 		let user = DANY;
 		let account_nonce = 123u32;
-		let account_rip160 = Ripemd::Hash::hash(user.encode().as_ref());
-		println!("account_nonce = {}", hex::encode(account_nonce.to_le_bytes()));
-		println!("account_hex = {:?}", hex::encode(user.encode()));
-		println!("account_rip160 = {:?}", account_rip160);
+		// let account_rip160 = Ripemd::Hash::hash(user.encode().as_ref());
+		// println!("account_nonce = {}", hex::encode(account_nonce.to_le_bytes()));
+		// println!("account_hex = {:?}", hex::encode(user.encode()));
+		// println!("account_rip160 = {:?}", account_rip160);
 
 		let signature = hex::decode("df6e11efe387bec44bc15c3c636dfa51a951a1cda1a96d1d1b32566de948cda6125e873bac098688b4991512ca1dfa68a26862c97b81ad0555a06f1423874d66").unwrap();
 
 		assert_ok!(VFE::bind_device(
-			Origin::signed(user.clone()),
+			Origin::none(),
+			user.clone(),
 			puk,
 			signature.try_into().unwrap(),
 			account_nonce,
@@ -322,16 +323,29 @@ fn bind_device_unit_test() {
 		let vfe = VFEDetails::<Test>::get(1, 1).expect("VFEDetail not exist");
 		assert_eq!(vfe.device_key, Some(device.pk));
 		assert_eq!(vfe.level, 0);
-		println!("vfe.base.efficiency: {}", vfe.base_ability.efficiency);
-		println!("vfe.base.skill: {}", vfe.base_ability.skill);
-		println!("vfe.base.luck: {}", vfe.base_ability.luck);
-		println!("vfe.base.durable: {}", vfe.base_ability.durable);
 
 		let user_info = Users::<Test>::get(&user).unwrap();
 		assert_eq!(user_info.energy_total, 8);
 		assert_eq!(user_info.energy, 8);
 		assert_eq!(user_info.earning_cap, 500 * 100000);
 		assert_eq!(user_info.earned, 0);
+
+		//check minting fee distribute
+		let producer_balance = <Currencies as MultiAssets<AccountId>>::balance(
+			0,
+			&crate::Pallet::<Test>::into_account_id(1),
+		);
+		assert_eq!(producer_balance, 0);
+		let user_balance = <Currencies as MultiAssets<AccountId>>::balance(
+			0,
+			&user,
+		);
+		assert_eq!(user_balance, 30);
+		let vfe_brand_owner_balance = <Currencies as MultiAssets<AccountId>>::balance(
+			0,
+			&CANDY,
+		);
+		assert_eq!(vfe_brand_owner_balance, 70);
 
 		//unbind_device
 		assert_ok!(VFE::unbind_device(
@@ -357,8 +371,38 @@ fn bind_device_should_not_work() {
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
 
-		let account_nonce = 2u32;
+		let account_nonce = 1u32;
 		let account_rip160 = Ripemd::Hash::hash(user.encode().as_ref());
+		let mut msg: Vec<u8> = Vec::new();
+		msg.extend(account_nonce.to_le_bytes().to_vec());
+		msg.extend(account_rip160.to_vec());
+
+		let signature = key.sign(msg.as_ref());
+
+		assert_noop!(<VFE as ValidateUnsigned>::validate_unsigned(
+			TransactionSource::Local,
+			&Call::bind_device {
+				from: user.clone(),
+				puk: pub_key,
+				signature: signature.to_vec().try_into().unwrap(),
+				nonce: account_nonce,
+				bind_item: Some(1u32),
+			}
+		), dispatch_error_to_invalid(Error::<Test>::NonceMustGreatThanBefore.into()));
+
+		assert_noop!(
+			VFE::bind_device(
+				Origin::none(),
+				user.clone(),
+				pub_key,
+				signature.to_vec().try_into().unwrap(),
+				account_nonce,
+				Some(1),
+			),
+			Error::<Test>::NonceMustGreatThanBefore
+		);
+
+		let account_nonce = 2u32;
 		let mut msg: Vec<u8> = Vec::new();
 		msg.extend(account_nonce.to_le_bytes().to_vec());
 		msg.extend(account_rip160.to_vec());
@@ -367,7 +411,8 @@ fn bind_device_should_not_work() {
 
 		assert_noop!(
 			VFE::bind_device(
-				Origin::signed(user.clone()),
+				Origin::none(),
+				user.clone(),
 				pub_key,
 				signature.to_vec().try_into().unwrap(),
 				account_nonce,
@@ -381,7 +426,8 @@ fn bind_device_should_not_work() {
 
 		assert_noop!(
 			VFE::bind_device(
-				Origin::signed(user.clone()),
+				Origin::none(),
+				user.clone(),
 				pub_key,
 				signature.to_vec().try_into().unwrap(),
 				account_nonce,
@@ -392,7 +438,8 @@ fn bind_device_should_not_work() {
 
 		assert_noop!(
 			VFE::bind_device(
-				Origin::signed(user.clone()),
+				Origin::none(),
+				user.clone(),
 				pub_key,
 				signature.to_vec().try_into().unwrap(),
 				account_nonce,
@@ -425,7 +472,7 @@ fn upload_training_report_unit_test() {
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
 		assert_ok!(VFE::upload_training_report(
-			Origin::signed(user.clone()),
+			Origin::none(),
 			pub_key,
 			BoundedVec::truncate_from(report_sig.to_vec()),
 			BoundedVec::truncate_from(report.into()),
@@ -459,7 +506,7 @@ fn upload_training_report_unit_test() {
 		// can not report same timestamp
 		assert_noop!(
 			VFE::upload_training_report(
-				Origin::signed(user.clone()),
+				Origin::none(),
 				pub_key,
 				BoundedVec::truncate_from(report_sig.to_vec()),
 				BoundedVec::truncate_from(report.into()),
@@ -484,7 +531,7 @@ fn upload_training_report_unit_test() {
 		let report_sig = key.sign(&report_encode);
 		assert_noop!(
 			VFE::upload_training_report(
-				Origin::signed(user.clone()),
+				Origin::none(),
 				pub_key,
 				BoundedVec::truncate_from(report_sig.to_vec()),
 				BoundedVec::truncate_from(report.into()),
@@ -498,7 +545,7 @@ fn upload_training_report_unit_test() {
 		let report_sig = key.sign(&report_encode);
 		assert_noop!(
 			VFE::upload_training_report(
-				Origin::signed(user.clone()),
+				Origin::none(),
 				pub_key,
 				BoundedVec::truncate_from(report_sig.to_vec()),
 				BoundedVec::truncate_from(report.into()),
@@ -513,7 +560,7 @@ fn upload_training_report_unit_test() {
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
 		assert_ok!(VFE::upload_training_report(
-			Origin::signed(user.clone()),
+			Origin::none(),
 			pub_key,
 			BoundedVec::truncate_from(report_sig.to_vec()),
 			BoundedVec::truncate_from(report.into()),
@@ -542,7 +589,7 @@ fn upload_training_report_unit_test() {
 		let report_sig = key.sign(&report_encode);
 		assert_noop!(
 			VFE::upload_training_report(
-				Origin::signed(user.clone()),
+				Origin::none(),
 				pub_key,
 				BoundedVec::truncate_from(report_sig.to_vec()),
 				BoundedVec::truncate_from(report.into()),
@@ -601,6 +648,9 @@ fn user_restore_unit_test() {
 		let user = DANY;
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
+
+		Timestamp::set_timestamp(1668686716000);
+
 		let report = JumpRopeTrainingReport {
 			timestamp: 1668676716,
 			training_duration: 183,
@@ -611,10 +661,11 @@ fn user_restore_unit_test() {
 			interruptions: 0,
 			jump_rope_duration: 183,
 		};
+
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
 		assert_ok!(VFE::upload_training_report(
-			Origin::signed(user.clone()),
+			Origin::none(),
 			pub_key,
 			report_sig.to_vec().try_into().unwrap(),
 			report_encode.try_into().unwrap()
@@ -623,6 +674,8 @@ fn user_restore_unit_test() {
 		//after global energy recovery occurred
 		run_to_block(9);
 
+		// let call = Call::user_restore { who: user.clone() };
+		// assert_ok!(<VFE as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, &call));
 		assert_ok!(VFE::user_restore(Origin::signed(user.clone())));
 		System::assert_has_event(Event::VFE(crate::Event::UserEnergyRestored {
 			who: user.clone(),
@@ -653,6 +706,9 @@ fn restore_power_unit_test() {
 		let user = DANY;
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
+
+		Timestamp::set_timestamp(1668686716000);
+		
 		let report = JumpRopeTrainingReport {
 			timestamp: 1668676716,
 			training_duration: 183,
@@ -666,7 +722,7 @@ fn restore_power_unit_test() {
 		let report_encode: Vec<u8> = report.into();
 		let report_sig = key.sign(&report_encode);
 		assert_ok!(VFE::upload_training_report(
-			Origin::signed(user.clone()),
+			Origin::none(),
 			pub_key,
 			report_sig.to_vec().try_into().unwrap(),
 			report_encode.try_into().unwrap()
