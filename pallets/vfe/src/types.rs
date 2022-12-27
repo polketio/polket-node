@@ -33,10 +33,10 @@ impl Default for DeviceStatus {
 pub enum SportType {
 	/// JumpRope
 	JumpRope = 0,
-	/// Run
-	Run = 1,
-	/// Bicycle
-	Bicycle = 2,
+	/// Running
+	Running = 1,
+	/// Riding
+	Riding = 2,
 }
 
 impl Default for SportType {
@@ -49,16 +49,16 @@ impl SportType {
 	pub fn training_unit_duration(&self) -> u16 {
 		match self {
 			SportType::JumpRope => 30,
-			SportType::Run => 60,
-			SportType::Bicycle => 60,
+			SportType::Running => 60,
+			SportType::Riding => 60,
 		}
 	}
 
 	pub fn frequency_standard(&self) -> u16 {
 		match self {
 			SportType::JumpRope => 120, //120 jumps/minute
-			SportType::Run => 10,
-			SportType::Bicycle => 30,
+			SportType::Running => 10,
+			SportType::Riding => 30,
 		}
 	}
 
@@ -70,8 +70,8 @@ impl SportType {
 				} else {
 					0
 				},
-			SportType::Run => 1,
-			SportType::Bicycle => 1,
+			SportType::Running => 1,
+			SportType::Riding => 1,
 		}
 	}
 }

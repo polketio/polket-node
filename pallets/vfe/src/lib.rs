@@ -84,18 +84,18 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-		///  Who can create VFE brand
+		///  The origin which who can create collection of VFE.
 		type BrandOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 
-		/// The origin which may add or remove producer. Root can always do this.
+		/// The origin which may add or remove producer.
 		type ProducerOrigin: EnsureOrigin<Self::Origin>;
 
-		/// Multiple asset types
+		/// Multiple Asset hander, which should implement `frame_support::traits::fungibles`
 		type Currencies: MultiAssets<Self::AccountId>
 			+ Transfer<Self::AccountId>
 			+ MultiAssetsMutate<Self::AccountId>;
 
-		/// ObjectId linked Data
+		/// Unify the value types of ProudcerId, CollectionId, ItemId, AssetId
 		type ObjectId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
@@ -111,11 +111,11 @@ pub mod pallet {
 		/// pallet-uniques instance
 		type UniquesInstance: Copy + Clone + PartialEq + Eq;
 
-		/// The producer-id key
+		/// The producer-id parent key
 		#[pallet::constant]
 		type ProducerId: Get<Self::ObjectId>;
 
-		/// The vfe brand-id key
+		/// The vfe brand-id parent key
 		#[pallet::constant]
 		type VFEBrandId: Get<Self::ObjectId>;
 
@@ -169,27 +169,33 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn incentive_token)]
+	/// Record the AssetId used to award incentive tokens to users.
 	pub type IncentiveToken<T> = StorageValue<_, AssetIdOf<T>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn nonce)]
+	/// Self-incrementing nonce to obtain non-repeating random seeds
 	pub type Nonce<T> = StorageValue<_, u8, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn last_energy_recovery)]
+	/// Record the block number of the latest recoverable energy updated in the network
 	pub type LastEnergyRecovery<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn last_daily_earned_reset)]
+	/// Record the block number of the daily earning limit updated of the network
 	pub type LastDailyEarnedReset<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn producers)]
+	/// Records the currently registered producer.
 	pub(crate) type Producers<T: Config> =
 		StorageMap<_, Twox64Concat, T::ObjectId, Producer<T::ObjectId, T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn vfe_brands)]
+	/// Record the currently created VFE brand.
 	pub(crate) type VFEBrands<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -200,6 +206,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn users)]
+	/// Record the user's daily training status
 	pub(crate) type Users<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -210,6 +217,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn devices)]
+	/// Record device status
 	pub(crate) type Devices<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -220,6 +228,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn device_vfes)]
+	/// Record the detailed attribute value of VFE item
 	pub(super) type VFEDetails<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -232,6 +241,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_vfe_approvals)]
+	/// Record the allowed minting information of VFE brand
 	pub(super) type VFEApprovals<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -597,7 +607,7 @@ pub mod pallet {
 
 		/// register_device
 		/// - origin AccountId
-		/// - puk   BoundedVec<u8, T::StringLimit>
+		/// - puk   DeviceKey
 		/// - producer_id ProducerId
 		/// - brand_id CollectionId
 		#[pallet::weight(10_000)]
@@ -680,7 +690,7 @@ pub mod pallet {
 
 		/// deregister_device
 		/// - origin AccountId
-		/// - puk   BoundedVec<u8, T::StringLimit>
+		/// - puk   DeviceKey
 		#[pallet::weight(10_000)]
 		#[transactional]
 		pub fn deregister_device(origin: OriginFor<T>, puk: DeviceKey) -> DispatchResult {
@@ -1391,8 +1401,8 @@ where
 
 				Ok(())
 			},
-			SportType::Run => Err(Error::<T>::ValueInvalid)?,
-			SportType::Bicycle => Err(Error::<T>::ValueInvalid)?,
+			SportType::Running => Err(Error::<T>::ValueInvalid)?,
+			SportType::Riding => Err(Error::<T>::ValueInvalid)?,
 		}
 	}
 

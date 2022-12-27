@@ -78,17 +78,17 @@ pub mod pallet {
 	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
-	#[pallet::storage]
-	#[pallet::getter(fn frozen_balance_get)]
-	pub(super) type FrozenBalances<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		T::AccountId,
-		Twox64Concat,
-		AssetIdOf<T>,
-		BalanceOf<T>,
-		OptionQuery,
-	>;
+	// #[pallet::storage]
+	// #[pallet::getter(fn frozen_balance_get)]
+	// pub(super) type FrozenBalances<T: Config> = StorageDoubleMap<
+	// 	_,
+	// 	Blake2_128Concat,
+	// 	T::AccountId,
+	// 	Twox64Concat,
+	// 	AssetIdOf<T>,
+	// 	BalanceOf<T>,
+	// 	OptionQuery,
+	// >;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]

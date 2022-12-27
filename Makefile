@@ -12,15 +12,23 @@ test:
 
 .PHONY: run
 run:
-	 cargo run --release -- --dev --tmp
+	./target/release/polket-node --dev --tmp
 
 .PHONY: build
 build:
-	 cargo build --release
+	cargo build --release
+
+.PHONY: purge-chain
+purge-chain:
+	./target/release/polket-node purge-chain --dev
+
+.PHONY: test
+test:
+	SKIP_WASM_BUILD= cargo test
 
 .PHONY: build-runtime
 build-runtime:
-	 cargo build --release -p polket-runtime
+	cargo build --release -p polket-runtime
 
 .PHONY: build-spec
 build-spec:

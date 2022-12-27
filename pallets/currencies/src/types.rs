@@ -4,20 +4,20 @@
 
 //! Implementations for fungibles trait.
 
-use super::*;
+// use super::*;
 
 
-pub struct Freezer<T>(PhantomData<T>);
+// pub struct Freezer<T>(PhantomData<T>);
 
-impl <T: Config>  pallet_assets::FrozenBalance<AssetIdOf<T>, T::AccountId, BalanceOf<T>> for  Freezer<T> {
-	fn frozen_balance(asset: AssetIdOf<T>, who: &T::AccountId) -> Option< BalanceOf<T>> {
-        if let Some(frozen) = FrozenBalances::<T>::get(who,asset){
-			return Some(frozen);
-		}
-		None
-	}
+// impl <T: Config>  pallet_assets::FrozenBalance<AssetIdOf<T>, T::AccountId, BalanceOf<T>> for  Freezer<T> {
+// 	fn frozen_balance(asset: AssetIdOf<T>, who: &T::AccountId) -> Option< BalanceOf<T>> {
+//         if let Some(frozen) = FrozenBalances::<T>::get(who,asset){
+// 			return Some(frozen);
+// 		}
+// 		None
+// 	}
 
-	fn died(_asset: AssetIdOf<T>, _who: &T::AccountId) {
+// 	fn died(_asset: AssetIdOf<T>, _who: &T::AccountId) {
 
-	}
-}
+// 	}
+// }
