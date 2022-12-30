@@ -183,3 +183,8 @@ $$Time(Lv)=Lv*60$$
 To complete the upgrade immediately, calculate the `FUN` cost based on the remaining time, the formula is as follows:
 
 $$f(x)=\frac {LevelCost} {Time} * x$$
+
+
+## License
+
+SPDX-License-Identifier: GPL-3.0-or-later

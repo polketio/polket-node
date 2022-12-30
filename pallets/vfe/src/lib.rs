@@ -780,7 +780,6 @@ pub mod pallet {
 					//check if device status is register, we can get a new vfe to bind.
 					let mut vfe = new_vfe.ok_or(Error::<T>::DeviceBond)?;
 					vfe.device_key = Some(puk);
-					Self::deposit_event(Event::VFECreated { owner: from.clone(), detail: vfe });
 
 					vfe
 				},
@@ -851,7 +850,7 @@ pub mod pallet {
 			report_sig: BoundedVec<u8, T::StringLimit>,
 			report_data: BoundedVec<u8, T::StringLimit>,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			ensure_none(origin.clone())?;
 			let mut device =
 				Self::check_device_training_report(device_pk, report_sig, report_data.clone())?;
 
@@ -1297,6 +1296,10 @@ where
 		let item_id = device.item_id.ok_or(Error::<T>::DeviceNotBond)?;
 		let sport_type = device.sport_type;
 		let account = Self::owner(&brand_id, &item_id).ok_or(Error::<T>::ItemNotFound)?;
+
+		// First try to restore user energy and daily earning cap.
+		Self::_restore_energy(&account)?;
+		Self::_reset_daily_earned(&account)?;
 
 		match sport_type {
 			SportType::JumpRope => {

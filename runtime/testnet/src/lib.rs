@@ -107,7 +107,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("polket"),
 	impl_name: create_runtime_str!("polket"),
 	authoring_version: 1,
-	spec_version: 17,
+	spec_version: 19,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -647,8 +647,8 @@ parameter_types! {
 	pub const IncentiveToken: ObjectId = 1;
 	pub const UnbindFee: Balance = MILLICENTS;
 	pub const CostUnit: Balance = DOLLARS / 10;
-	pub const EnergyRecoveryDuration: BlockNumber = HOURS;
-	pub const DailyEarnedResetDuration: BlockNumber = HOURS * 6;
+	pub const EnergyRecoveryDuration: BlockNumber = HOURS * 6;
+	pub const DailyEarnedResetDuration: BlockNumber = HOURS * 24;
 	pub const LevelUpCostFactor: Balance = 7;
 	pub const InitEnergy: u16 = 8;
 	pub const InitEarningCap: u16 = 500;
