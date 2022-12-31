@@ -115,29 +115,29 @@ The actual luck score is calculated via on-chain random number.
 
 **Compute the skill score for this training**
 
-$S' = \lfloor \frac {S*J_{max}}{(T+1)*K} \rfloor $
+$$S' = \lfloor \frac {S*J_{max}}{(T+1)*K} \rfloor $$
 
-$\Delta S = R \pmod {\vert S - S'\vert}$
-$
+$$\Delta S = R \pmod {\vert S - S'\vert}$$
+$$
 S''=
 \begin{cases}
 S-\Delta S, & S' \lt S \\
 S+\Delta S, & S' \ge S
 \end{cases}
-$
+$$
 
 In a training session, the maximum number of consecutive jumps and the number of trip ropes are the key factors affecting skill scores.
 The trainer's mastery of jumping rope skills will double the skill scores.
 
 **Calculate Jump Frequency Factor**
 
-$
+$$
 F=
 \begin{cases}
 0, & J_{avg} \notin [80, 400] \\
 1, & J_{avg} \in [80, 400]
 \end{cases}
-$
+$$
 
 Valid frequency factor: the value is 1 within the range of 80 times/minute to 400 times/minute, otherwise it is 0.
 
