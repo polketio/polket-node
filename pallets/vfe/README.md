@@ -104,8 +104,7 @@ Every time a level of VFE is upgraded, growth points are obtained, which can be 
 | T          | u16  | Trip rope times                                                                                                                           |
 | N          | u16  | Energy value, `Jump Rope` consumes 1 point of energy for every 30 seconds of exercise, and no energy is consumed for less than 30 seconds |
 | K          | u16  | Assessment frequency constant, system value = 120 times/minute.                                                                           |
-| FUN        | u128 | Reward tokens with a decimal precision of 12. 1 FUN=10^12 unit
-                                                                               |
+| FUN        | u128 | Reward tokens with a decimal precision of 12. 1 FUN=10^12 unit                                                                            |
 
 **Calculate random luck score**
 
@@ -148,7 +147,7 @@ $$B = \frac {FUN} {10}$$
 
 **FUN reward formula**
 
-$$FUN_{reward} = [E+S'' + (2*L_{rnd})]*N*F*B$$
+$$FUN_{reward} = (E+S'' + 2 * L_{rnd} ) * N * F * B$$
 
 **Energy**
 
