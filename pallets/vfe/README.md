@@ -148,7 +148,7 @@ $$B = \frac {FUN} {10}$$
 
 **FUN reward formula**
 
-$${FUN_{reward}} = (E+S'' + 2*{L_{rnd}})*N*F*B$$
+$$FUN_{reward} = [E+S'' + (2*L_{rnd})]*N*F*B$$
 
 **Energy**
 
