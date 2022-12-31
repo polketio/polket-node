@@ -109,7 +109,7 @@ Every time a level of VFE is upgraded, growth points are obtained, which can be 
 
 **Calculate random luck score**
 
-$L_{Rnd} = R \pmod L + 1$
+$$L_{Rnd} = R \pmod L + 1$$
 
 The actual luck score is calculated via on-chain random number.
 
@@ -118,6 +118,7 @@ The actual luck score is calculated via on-chain random number.
 $$S' = \lfloor \frac {S*J_{max}}{(T+1)*K} \rfloor $$
 
 $$\Delta S = R \pmod {\vert S - S'\vert}$$
+
 $$
 S''=
 \begin{cases}
@@ -147,7 +148,7 @@ $$B = \frac {FUN} {10}$$
 
 **FUN reward formula**
 
-$$FUN_{reward} = (E+S''+ 2*L_{rnd})*N*F*B$$
+$${FUN_{reward}} = (E+S'' + 2*{L_{rnd}})*N*F*B$$
 
 **Energy**
 
