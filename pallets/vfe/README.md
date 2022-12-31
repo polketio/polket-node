@@ -164,13 +164,13 @@ $$N_{cap} = \lfloor\frac {Lv} 2 \rfloor*4+8$$
 The power range is from 0% to 100%. For every energy consumed, 1% of the power will be deducted. When the power is 0%, the VFE will be damaged and cannot be repaired by charging.
 The durability and level of VFE affect the charging cost, and the charging `FUN` cost formula for each point of energy consumed is as follows:
 
-$$FUN_{cost} = (\frac {E_{base}+S_{base}+L_{base}+D_{base}} 2+(\frac {E+S+L+D} {4*D})^2*Lv)*N*B$$
+$$FUN_{cost} = (\frac {E_{base}+S_{base}+L_{base}+D_{base}} 2+(\frac {E+S+L+D} {4 * D})^2*Lv) * N * B$$
 
 **VFE upgrade cost**
 
 VFE upgrade needs to consume `FUN`, and the upgrade cost is calculated according to this formula:
 
-$$LevelCost(Lv+1)=T_{cost}*N_{cap}*B*[Lv*(G-1)+\frac {E_{base}+S_{base}+L_{base}-D_{base}} 2]$$
+$$LevelCost(Lv+1)=T_{cost} * N_{cap} * B * [Lv * (G-1)+\frac {E_{base}+S_{base}+L_{base}-D_{base}} 2]$$
 
 - $T_{cost}$is a constant, the system value is 7.
 - $G$ is the VFE growth point, the value is different according to the `Rarity`, the value refers to **Upgrade Growth Attribute Points**.
