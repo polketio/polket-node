@@ -1598,11 +1598,11 @@ where
 	// restore user energy
 	fn _restore_energy(who: &T::AccountId) -> DispatchResult {
 		let mut user = Users::<T>::get(&who).ok_or(Error::<T>::UserNotExist)?;
-
+		let last_energy_recovery = LastEnergyRecovery::<T>::get();
 		if user.energy < user.energy_total {
 			let user_last_restore_block = user.last_restore_block;
 			let duration = T::EnergyRecoveryDuration::get();
-			let last_energy_recovery = LastEnergyRecovery::<T>::get();
+
 			let recoverable_times = last_energy_recovery.saturating_sub(user_last_restore_block);
 			let recoverable_times =
 				recoverable_times.checked_div(&duration).ok_or(Error::<T>::ValueOverflow)?;
@@ -1618,13 +1618,12 @@ where
 				user.energy = max_recovery_energy;
 				recoverable_energy
 			};
-			user.last_restore_block = last_energy_recovery;
 
-			//todo: reset user earned
-
-			Users::<T>::insert(&who, user);
 			Self::deposit_event(Event::UserEnergyRestored { who: who.to_owned(), restored_amount });
 		}
+
+		user.last_restore_block = last_energy_recovery;
+		Users::<T>::insert(&who, user);
 
 		Ok(())
 	}
@@ -1637,10 +1636,12 @@ where
 		let last_daily_earned_reset = LastDailyEarnedReset::<T>::get();
 		if user_last_earned_reset_block < last_daily_earned_reset {
 			user.earned = Zero::zero();
-			user.last_earned_reset_block = last_daily_earned_reset;
-			Users::<T>::insert(&who, user);
+
 			Self::deposit_event(Event::UserDailyEarnedReset { who: who.to_owned() });
 		}
+
+		user.last_earned_reset_block = last_daily_earned_reset;
+		Users::<T>::insert(&who, user);
 		Ok(())
 	}
 
