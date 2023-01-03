@@ -129,3 +129,7 @@ polketio/polket-node:latest \
   --name your-fullnode-name
 
 ```
+
+## License
+
+SPDX-License-Identifier: GPL-3.0-or-later
