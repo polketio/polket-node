@@ -132,4 +132,4 @@ polketio/polket-node:latest \
 
 ## License
 
-SPDX-License-Identifier: GPL-3.0-or-later
+[GPL-v3.0](./LICENSE)
