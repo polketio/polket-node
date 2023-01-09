@@ -16,7 +16,7 @@ RUN cargo build --locked --release
 FROM docker.io/library/ubuntu:20.04
 LABEL description="Multistage Docker image for polket-node" \
     image.type="builder" \
-    image.authors="zhiquan911@email.com" \
+    image.authors="zhiquan911@gmail.com" \
     image.vendor="Polket" \
     image.description="Multistage Docker image for polket-node" \
     image.source="https://github.com/polketio/polket-node" \
@@ -25,6 +25,7 @@ LABEL description="Multistage Docker image for polket-node" \
 # Copy the node binary.
 COPY --from=builder /polket-node/target/release/polket-node /usr/local/bin
 
+RUN mkdir .local
 RUN useradd -m -u 1000 -U -s /bin/sh -d /node-dev node-dev && \
     mkdir -p /chain-data /node-dev/.local/share && \
     chown -R node-dev:node-dev /chain-data && \
