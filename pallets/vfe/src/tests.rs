@@ -771,26 +771,27 @@ fn level_up_unit_test() {
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
 
 		assert_noop!(
-			VFE::level_up(Origin::signed(user.clone()), 1, 1, 0),
-			Error::<Test>::ValueInvalid
-		);
-		assert_noop!(
-			VFE::level_up(Origin::signed(user.clone()), 1, 2, 1),
+			VFE::level_up(Origin::signed(user.clone()), 1, 2),
 			Error::<Test>::VFENotExist
 		);
 		assert_noop!(
-			VFE::level_up(Origin::signed(BOB), 1, 1, 1),
+			VFE::level_up(Origin::signed(BOB), 1, 1),
 			Error::<Test>::OperationIsNotAllowed
 		);
 
+		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
+		let user_info = Users::<Test>::get(&user).unwrap();
+		let level_up_costs = VFE::calculate_level_up_costs(&vfe, &user_info);
+		// println!("level_up_costs: {}", level_up_costs);
+
 		//issue some asset to user, then level up VFE
-		assert_ok!(Currencies::mint_into(1, &user, 90000000));
-		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 1));
+		assert_ok!(Currencies::mint_into(1, &user, 180000000));
+		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1));
 		System::assert_has_event(Event::VFE(crate::Event::VFELevelUp {
 			brand_id: 1,
 			item_id: 1,
 			level_up: 1,
-			cost: 18200000,
+			cost: level_up_costs,
 		}));
 		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
 		assert_eq!(vfe.level, 1);
@@ -800,12 +801,20 @@ fn level_up_unit_test() {
 		assert_eq!(user_info.energy_total, 8);
 		assert_eq!(user_info.earning_cap, 1000 * 100000);
 
-		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 3));
+		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1));
+		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1));
+
+		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
+		let user_info = Users::<Test>::get(&user).unwrap();
+		let level_up_costs = VFE::calculate_level_up_costs(&vfe, &user_info);
+		// let user_balance = Currencies::balance(1, &user);
+		// println!("user_balance = {}, level_up_costs = {}", user_balance, level_up_costs);
+		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1));
 		System::assert_has_event(Event::VFE(crate::Event::VFELevelUp {
 			brand_id: 1,
 			item_id: 1,
-			level_up: 3,
-			cost: 51800000,
+			level_up: 4,
+			cost: level_up_costs,
 		}));
 		let vfe = VFEDetails::<Test>::get(1, 1).unwrap();
 		assert_eq!(vfe.level, 4);
@@ -815,10 +824,11 @@ fn level_up_unit_test() {
 		assert_eq!(user_info.energy_total, 16);
 		assert_eq!(user_info.earning_cap, 2500 * 100000);
 
+		// let level_up_costs = VFE::calculate_level_up_costs(&vfe, &user_info);
 		// let user_balance = Currencies::balance(1, &user);
-		// println!("user_balance = {}", user_balance);
+		// println!("user_balance = {}, level_up_costs = {}", user_balance, level_up_costs);
 		assert_noop!(
-			VFE::level_up(Origin::signed(user.clone()), 1, 1, 5),
+			VFE::level_up(Origin::signed(user.clone()), 1, 1),
 			pallet_assets::Error::<Test>::BalanceLow
 		);
 	});
@@ -833,21 +843,20 @@ fn increase_ability_unit_test() {
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
 
 		assert_noop!(
-			VFE::level_up(Origin::signed(user.clone()), 1, 1, 0),
-			Error::<Test>::ValueInvalid
-		);
-		assert_noop!(
-			VFE::level_up(Origin::signed(user.clone()), 1, 2, 1),
+			VFE::level_up(Origin::signed(user.clone()), 1, 2),
 			Error::<Test>::VFENotExist
 		);
 		assert_noop!(
-			VFE::level_up(Origin::signed(BOB), 1, 1, 1),
+			VFE::level_up(Origin::signed(BOB), 1, 1),
 			Error::<Test>::OperationIsNotAllowed
 		);
 
 		//issue some asset to user, then level up VFE
-		assert_ok!(Currencies::mint_into(1, &user, 90000000));
-		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1, 4));
+		assert_ok!(Currencies::mint_into(1, &user, 180000000));
+		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1));
+		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1));
+		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1));
+		assert_ok!(VFE::level_up(Origin::signed(user.clone()), 1, 1));
 		let origin_vfe = VFEDetails::<Test>::get(1, 1).unwrap();
 		assert_eq!(origin_vfe.level, 4);
 		assert_eq!(origin_vfe.available_points, 16);

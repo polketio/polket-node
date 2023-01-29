@@ -38,3 +38,16 @@ fn generate_over_half_of_max_value_should_not_work() {
 		}
 	});
 }
+
+#[test]
+fn encode_test() {
+	let prefix_id = 1u64;
+	let parent_id = 1u64;
+	let encode_id = (prefix_id, parent_id).encode();
+	println!("(1, 2)): {}", hex::encode(encode_id));
+
+	let prefix_id = 2u64;
+	let parent_id = 1u64;
+	let encode_id = (prefix_id, parent_id).encode();
+	println!("(2, 1)): {}", hex::encode(encode_id));
+}

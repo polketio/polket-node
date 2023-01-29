@@ -83,7 +83,7 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
-	C::Api: pallet_vfe_rpc::VFERuntimeApi<Block, AccountId, ObjectId, VFEDetail>,
+	C::Api: pallet_vfe_rpc::VFERuntimeApi<Block, AccountId, ObjectId, ObjectId, VFEDetail, Balance>,
 	C::Api: pallet_currencies_rpc::CurrenciesRuntimeApi<Block, AccountId, ObjectId, Balance>,
 	P: TransactionPool + Sync + Send + 'static,
 	SC: SelectChain<Block> + 'static,

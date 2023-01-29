@@ -884,21 +884,7 @@ pub mod pallet {
 			ensure!(vfe.remaining_battery < 100u16, Error::<T>::VFEFullyCharged);
 			ensure!((vfe.remaining_battery + charge_num) <= 100u16, Error::<T>::ValueOverflow);
 
-			let p_one = (vfe.base_ability.efficiency +
-				vfe.base_ability.skill +
-				vfe.base_ability.luck +
-				vfe.base_ability.durable) /
-				2;
-
-			let p_two = (vfe.current_ability.efficiency +
-				vfe.current_ability.skill +
-				vfe.current_ability.luck +
-				vfe.current_ability.durable) /
-				(4 * vfe.current_ability.durable);
-
-			let p_two = p_two.pow(2) * vfe.level;
-			let total_charge_cost = BalanceOf::<T>::from((p_one + p_two) * charge_num)
-				.saturating_mul(T::CostUnit::get());
+			let total_charge_cost = Self::calculate_charging_costs(vfe.clone(), charge_num);
 
 			// try to burn the charge
 			let incentive_token =
@@ -941,10 +927,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			brand_id: T::CollectionId,
 			item_id: T::ItemId,
-			level_up: u16,
 		) -> DispatchResult {
 			// cost fee to level up vfe
-			ensure!(level_up > 0, Error::<T>::ValueInvalid);
 			VFEDetails::<T>::try_mutate(&brand_id, &item_id, |maybe_vfe| -> DispatchResult {
 				let who = ensure_signed(origin.clone())?;
 				let mut vfe = maybe_vfe.take().ok_or(Error::<T>::VFENotExist)?;
@@ -953,28 +937,15 @@ pub mod pallet {
 				let mut user = Users::<T>::get(&who).ok_or(Error::<T>::UserNotExist)?;
 
 				// Calculating level up fees for VFE
-				let t = T::LevelUpCostFactor::get();
-				let cost_unit = T::CostUnit::get();
-				let base_ability = (vfe
-					.base_ability
-					.efficiency
-					.saturating_add(vfe.base_ability.skill)
-					.saturating_add(vfe.base_ability.luck)
-					.saturating_sub(vfe.base_ability.durable)) /
-					2;
-				let g = vfe.rarity.growth_points();
-				let n = user.energy_total;
-				let level_up_cost = base_ability + level_up * (g - 1) * n;
-				let level_cost =
-					BalanceOf::<T>::from(level_up_cost).saturating_mul(t).saturating_mul(cost_unit);
+				let level_cost = Self::calculate_level_up_costs(&vfe, &user);
 
 				// level up should burn token
 				let incentive_token =
 					IncentiveToken::<T>::get().ok_or(Error::<T>::IncentiveTokenNotSet)?;
 				T::Currencies::burn_from(incentive_token, &who, level_cost)?;
 
-				vfe.level = vfe.level + level_up;
-				vfe.available_points = vfe.available_points + level_up * g;
+				vfe.level = vfe.level + 1;
+				vfe.available_points = vfe.available_points + 1 * vfe.rarity.growth_points();
 				*maybe_vfe = Some(vfe);
 
 				// increase the user's energy cap and earing cap of daily
@@ -993,7 +964,7 @@ pub mod pallet {
 				Self::deposit_event(Event::VFELevelUp {
 					brand_id,
 					item_id,
-					level_up,
+					level_up: vfe.level,
 					cost: level_cost,
 				});
 
@@ -1670,6 +1641,97 @@ where
 		let base_cap = T::InitEarningCap::get();
 		let cap = base_cap * level + base_cap;
 		BalanceOf::<T>::saturated_from(cap).saturating_mul(T::CostUnit::get())
+	}
+
+	// calculate VFE charging costs
+	pub(crate) fn calculate_charging_costs(
+		vfe: VFEDetail<T::CollectionId, T::ItemId, T::Hash, T::BlockNumber>,
+		charge_num: u16,
+	) -> BalanceOf<T> {
+		let mut charge_num = charge_num;
+		if vfe.remaining_battery + charge_num > 100u16 {
+			charge_num = 100u16 - vfe.remaining_battery;
+		}
+
+		let p_one = (vfe.base_ability.efficiency +
+			vfe.base_ability.skill +
+			vfe.base_ability.luck +
+			vfe.base_ability.durable) /
+			2;
+
+		let p_two = (vfe.current_ability.efficiency +
+			vfe.current_ability.skill +
+			vfe.current_ability.luck +
+			vfe.current_ability.durable) /
+			(4 * vfe.current_ability.durable);
+
+		let p_two = p_two.pow(2) * vfe.level;
+		let total_charge_cost =
+			BalanceOf::<T>::from((p_one + p_two) * charge_num).saturating_mul(T::CostUnit::get());
+
+		total_charge_cost
+	}
+
+	// calculate VFE level up costs
+	pub(crate) fn calculate_level_up_costs(
+		vfe: &VFEDetail<T::CollectionId, T::ItemId, T::Hash, T::BlockNumber>,
+		user: &User<T::AccountId, T::BlockNumber, BalanceOf<T>>,
+	) -> BalanceOf<T> {
+		// Calculating level up fees for VFE
+		let t = T::LevelUpCostFactor::get();
+		let cost_unit = T::CostUnit::get();
+		let base_ability = (vfe
+			.base_ability
+			.efficiency
+			.saturating_add(vfe.base_ability.skill)
+			.saturating_add(vfe.base_ability.luck)
+			.saturating_sub(vfe.base_ability.durable)) /
+			2;
+		let g = vfe.rarity.growth_points();
+		let n = user.energy_total;
+		let level_up_cost = base_ability + vfe.level * (g - 1) * n;
+		let level_cost =
+			BalanceOf::<T>::from(level_up_cost).saturating_mul(t).saturating_mul(cost_unit);
+
+		level_cost
+	}
+
+	// get VFE charging costs
+	pub fn get_charging_costs(
+		brand_id: T::CollectionId,
+		item: T::ItemId,
+		charge_num: u16,
+	) -> BalanceOf<T> {
+		let vfe = VFEDetails::<T>::get(brand_id, item);
+		if vfe.is_none() {
+			Zero::zero()
+		} else {
+			let vfe = vfe.unwrap();
+			Self::calculate_charging_costs(vfe, charge_num)
+		}
+	}
+
+	// get VFE level up costs
+	pub fn get_level_up_costs(
+		who: T::AccountId,
+		brand_id: T::CollectionId,
+		item: T::ItemId,
+	) -> BalanceOf<T> {
+		let vfe = VFEDetails::<T>::get(brand_id, item);
+		let user = Users::<T>::get(&who);
+		let vfe_owner = Self::owner(&brand_id, &item);
+		if vfe.is_some() && user.is_some() && vfe_owner.is_some() {
+			let vfe_owner = vfe_owner.unwrap();
+			let vfe = vfe.unwrap();
+			let user = user.unwrap();
+			if vfe_owner == who {
+				Self::calculate_level_up_costs(&vfe, &user)
+			} else {
+				Zero::zero()
+			}
+		} else {
+			Zero::zero()
+		}
 	}
 }
 

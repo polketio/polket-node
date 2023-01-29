@@ -17,7 +17,7 @@ use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_support::identity::IdentityRoleProducer;
+// use pallet_support::identity::IdentityRoleProducer;
 pub use runtime_common::{origin::EnsureIdentity, CurrencyToVote, VFEDetail, VFEInstance};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -107,7 +107,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("polket"),
 	impl_name: create_runtime_str!("polket"),
 	authoring_version: 1,
-	spec_version: 21,
+	spec_version: 23,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -647,7 +647,7 @@ parameter_types! {
 	pub const IncentiveToken: ObjectId = 1;
 	pub const UnbindFee: Balance = MILLICENTS;
 	pub const CostUnit: Balance = DOLLARS / 10;
-	pub const EnergyRecoveryDuration: BlockNumber = HOURS * 2;
+	pub const EnergyRecoveryDuration: BlockNumber = HOURS * 4;
 	pub const DailyEarnedResetDuration: BlockNumber = HOURS * 24;
 	pub const LevelUpCostFactor: Balance = 7;
 	pub const InitEnergy: u16 = 8;
@@ -977,9 +977,17 @@ impl_runtime_apis! {
 	}
 
 	//custom runtime-api
-	impl pallet_vfe_rpc_runtime_api::VfeApi<Block, AccountId, ObjectId, VFEDetail> for Runtime {
+	impl pallet_vfe_rpc_runtime_api::VfeApi<Block, AccountId, ObjectId, ObjectId, VFEDetail, Balance> for Runtime {
 		fn get_vfe_details_by_address(account: AccountId, brand_id: ObjectId) -> Vec<VFEDetail> {
 			VFE::get_vfe_details_by_address(account, brand_id)
+		}
+
+		fn get_charging_costs(brand_id: ObjectId, item: ObjectId, charge_num: u16) -> Balance {
+			VFE::get_charging_costs(brand_id, item, charge_num)
+		}
+
+	 	fn get_level_up_costs(who: AccountId, brand_id: ObjectId, item: ObjectId) -> Balance {
+			VFE::get_level_up_costs(who, brand_id, item)
 		}
 	}
 

@@ -21,6 +21,9 @@ sp-std = { default-features = false, git = 'https://github.com/paritytech/substr
 # local libraries
 pallet-support = { default-features = false, path='../support' }
 
+[dev-dependencies]
+hex = "0.4.2"
+
 [features]
 default = ['std']
 runtime-benchmarks = [
