@@ -8694,6 +8694,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
+name = "vfe-order"
+version = "0.1.0"
+dependencies = [
+ "bitcoin_hashes",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "num-integer",
+ "p256",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-support",
+ "pallet-unique-id",
+ "pallet-uniques",
+ "parity-scale-codec 3.1.5",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

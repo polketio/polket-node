@@ -21,7 +21,7 @@ pub use crate::constants_types::*;
 pub use contract_types::*;
 pub use log;
 
-pub type ResultPost<T> = sp_std::result::Result<
+pub type ResultPost<T> = Result<
 	T,
 	sp_runtime::DispatchErrorWithPostInfo<frame_support::weights::PostDispatchInfo>,
 >;
@@ -125,12 +125,7 @@ impl Encode for Properties {
 		self.0.bits().using_encoded(f)
 	}
 }
-impl Decode for Properties {
-	fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
-		let field = u8::decode(input)?;
-		Ok(Self(<BitFlags<ClassProperty>>::from_bits(field as u8).map_err(|_| "invalid value")?))
-	}
-}
+
 impl TypeInfo for Properties {
 	type Identity = Self;
 	fn type_info() -> Type {
@@ -155,42 +150,6 @@ pub struct AccountToken<ItemId> {
 	pub reserved: ItemId,
 }
 
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct ClassData<BlockNumber> {
-	/// The minimum balance to create class
-	#[codec(compact)]
-	pub deposit: Balance,
-	/// Property of all tokens in this class.
-	pub properties: Properties,
-	/// Name of class.
-	pub name: Vec<u8>,
-	/// Description of class.
-	pub description: Vec<u8>,
-	#[codec(compact)]
-	pub create_block: BlockNumber,
-	#[codec(compact)]
-	pub royalty_rate: PerU16,
-	/// Category of this class.
-	pub category_ids: Vec<GlobalId>,
-}
-
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct TokenData<AccountId, BlockNumber> {
-	/// The minimum balance to create token
-	#[codec(compact)]
-	pub deposit: Balance,
-	#[codec(compact)]
-	pub create_block: BlockNumber,
-	/// Charge royalty
-	#[codec(compact)]
-	pub royalty_rate: PerU16,
-	/// The token's creator
-	pub creator: AccountId,
-	/// Royalty beneficiary
-	pub royalty_beneficiary: AccountId,
-}
 
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -220,26 +179,9 @@ pub struct OrderItem<CollectionId, ItemId> {
 #[derive(
 	Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, Serialize, Deserialize, Default, TypeInfo,
 )]
-pub struct ClassConfig<CollectionId, AccountId, ItemId> {
-	pub class_id: CollectionId,
-	pub class_metadata: String,
-	pub category_ids: Vec<GlobalId>,
-	pub name: String,
-	pub description: String,
-	pub royalty_rate: PerU16,
-	pub properties: u8,
-	pub admins: Vec<AccountId>,
-	pub tokens: Vec<TokenConfig<AccountId, ItemId>>,
-}
-
-#[cfg(feature = "std")]
-#[derive(
-	Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, Serialize, Deserialize, Default, TypeInfo,
-)]
 pub struct TokenConfig<AccountId, ItemId> {
 	pub instance_id: ItemId,
 	pub token_metadata: String,
-	pub royalty_rate: PerU16,
 	pub token_owner: AccountId,
 	pub token_creator: AccountId,
 	pub royalty_beneficiary: AccountId,
