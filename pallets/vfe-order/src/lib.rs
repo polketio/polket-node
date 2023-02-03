@@ -11,6 +11,7 @@ use frame_support::{
 	transactional,PalletId,
 };
 use pallet_support::uniqueid::UniqueIdGenerator;
+use pallet_support::trade::UniqueTradeGenerator;
 use frame_system::pallet_prelude::*;
 use scale_info::{
 	prelude::format,
@@ -107,6 +108,9 @@ pub mod pallet {
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
 		type UniqueId: UniqueIdGenerator<ObjectId = Self::ObjectId>;
+		
+
+		type UniqueTradeGenerator: UniqueTradeGenerator<AccountId = Self::AccountId,CollectionId = Self::CollectionId,ItemId = Self::ItemId>;
 
 	}
 
