@@ -74,7 +74,6 @@ type VFEBrandApprovalOf<T> = VFEBrandApprove<AssetIdOf<T>, BalanceOf<T>>;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::traits::UnixTime;
 
 	use super::*;
 
