@@ -7,7 +7,7 @@ use crate as pallet_currencies;
 use frame_support::parameter_types;
 use frame_system as system;
 use pallet_assets::FrozenBalance;
-use sp_core::H256;
+use sp_core::{H256, Hasher};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -135,6 +135,7 @@ impl FrozenBalance<u32, AccountId, u64> for TestFreezer {
 }
 
 impl pallet_unique_id::Config for Test {
+	type ParentId = Self::Hash;
 	type ObjectId = u32;
 	type StartId = ConstU32<2u32>;
 	type MaxId = ConstU32<100u32>;
@@ -142,7 +143,8 @@ impl pallet_unique_id::Config for Test {
 
 parameter_types! {
 	pub const NativeToken: u32 = 0;
-	pub const AssetId: u32 = u32::MAX - 1;
+	// pub const AssetId: u32 = u32::MAX - 1;
+	pub AssetId: H256 = BlakeTwo256::hash(b"assetidkey");
 }
 
 impl Config for Test {

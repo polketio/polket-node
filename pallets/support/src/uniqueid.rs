@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 pub trait UniqueIdGenerator {
+	type ParentId;
 	type ObjectId;
 
 	/// generate new object id by parentId, Return the current ID, and increment the current ID
-	fn generate_object_id(parent_id: Self::ObjectId) -> Result<Self::ObjectId, sp_runtime::DispatchError>;
+	fn generate_object_id(parent_id: Self::ParentId) -> Result<Self::ObjectId, sp_runtime::DispatchError>;
 }

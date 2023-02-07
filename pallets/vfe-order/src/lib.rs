@@ -103,11 +103,11 @@ pub mod pallet {
 
 		/// The order-id parent key
 		#[pallet::constant]
-		type OrderParentId: Get<Self::ObjectId>;
+		type OrderParentId: Get<Self::Hash>;
 
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
-		type UniqueId: UniqueIdGenerator<ObjectId = Self::ObjectId>;
+		type UniqueId: UniqueIdGenerator<ParentId = Self::Hash, ObjectId = Self::ObjectId>;
 		
 
 		type UniqueTradeGenerator: UniqueTradeGenerator<AccountId = Self::AccountId,CollectionId = Self::CollectionId,ItemId = Self::ItemId>;

@@ -60,6 +60,7 @@ impl frame_system::Config for Test {
 }
 
 impl pallet_unique_id::Config for Test {
+	type ParentId = Self::Hash;
 	type ObjectId = u32;
 	type StartId = ConstU32<1u32>;
 	type MaxId = ConstU32<100u32>;

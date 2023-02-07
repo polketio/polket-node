@@ -20,7 +20,7 @@ use pallet_grandpa::{
 // use pallet_support::identity::IdentityRoleProducer;
 pub use runtime_common::{origin::EnsureIdentity, CurrencyToVote, VFEDetail, VFEInstance};
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, Hasher, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
@@ -73,7 +73,7 @@ pub use polket_primitives::*;
 pub mod constants;
 
 use crate::constants::currency::MILLICENTS;
-use constants::{currency::DOLLARS, time::*};
+use constants::{currency::DOLLARS, id::{ASSET_ID, PRODUCER_ID, VFE_BRAND_ID}, time::*};
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -498,6 +498,7 @@ parameter_types! {
 }
 
 impl pallet_unique_id::Config for Runtime {
+	type ParentId = Self::Hash;
 	type ObjectId = ObjectId;
 	type StartId = StartId;
 	type MaxId = MaxId;
@@ -512,7 +513,7 @@ impl pallet_utility::Config for Runtime {
 
 parameter_types! {
 	pub const NativeToken: u64 = 0;
-	pub const AssetId: ObjectId = constants::id::ASSET_ID;
+	pub AssetId: Hash =  BlakeTwo256::hash(ASSET_ID);
 }
 
 impl pallet_currencies::Config for Runtime {
@@ -641,9 +642,9 @@ impl pallet_multisig::Config for Runtime {
 // }
 
 parameter_types! {
+	pub ProducerId: Hash = BlakeTwo256::hash(PRODUCER_ID);
+	pub VFEBrandId: Hash = BlakeTwo256::hash(VFE_BRAND_ID);
 	pub const VFEPalletId: PalletId = PalletId(*b"poke/vfe");
-	pub const ProducerId: ObjectId = constants::id::PRODUCER_ID;
-	pub const VFEBrandId: ObjectId = constants::id::VFE_BRAND_ID;
 	pub const IncentiveToken: ObjectId = 1;
 	pub const UnbindFee: Balance = MILLICENTS;
 	pub const CostUnit: Balance = DOLLARS / 10;
@@ -986,7 +987,7 @@ impl_runtime_apis! {
 			VFE::get_charging_costs(brand_id, item, charge_num)
 		}
 
-	 	fn get_level_up_costs(who: AccountId, brand_id: ObjectId, item: ObjectId) -> Balance {
+		 fn get_level_up_costs(who: AccountId, brand_id: ObjectId, item: ObjectId) -> Balance {
 			VFE::get_level_up_costs(who, brand_id, item)
 		}
 	}

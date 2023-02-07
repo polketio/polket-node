@@ -18,8 +18,8 @@ use frame_system::pallet_prelude::*;
 use frame_support::traits::fungibles::{metadata, Create};
 use frame_system::Config as SystemConfig;
 pub use pallet::*;
-use pallet_support::{fungibles::AssetFronze, uniqueid::UniqueIdGenerator};
-use sp_runtime::traits::{Saturating, StaticLookup};
+use pallet_support::uniqueid::UniqueIdGenerator;
+use sp_runtime::traits::StaticLookup;
 use sp_std::vec::Vec;
 
 mod impl_fungibles;
@@ -39,6 +39,7 @@ type AssetIdOf<T> =
 
 #[frame_support::pallet]
 pub mod pallet {
+
 	use super::*;
 
 	#[pallet::config]
@@ -67,11 +68,11 @@ pub mod pallet {
 			+ fungible::Transfer<Self::AccountId, Balance = BalanceOf<Self>>;
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
-		type UniqueId: UniqueIdGenerator<ObjectId = AssetIdOf<Self>>;
+		type UniqueId: UniqueIdGenerator<ParentId = Self::Hash, ObjectId = AssetIdOf<Self>>;
 
 		/// The asset id
 		#[pallet::constant]
-		type AssetId: Get<AssetIdOf<Self>>;
+		type AssetId: Get<Self::Hash>;
 	}
 
 	#[pallet::pallet]

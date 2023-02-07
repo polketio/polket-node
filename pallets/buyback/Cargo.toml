@@ -28,6 +28,10 @@ sp-runtime = { default-features = false, git = 'https://github.com/paritytech/su
 sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '4.0.0-dev' }
 p256 = { default-features = false, version = "0.10.1", features = ["ecdsa"]}
 
+# local libraries
+pallet-support = { default-features = false, path='../support' }
+pallet-unique-id = { default-features = false, path='../unique-id' }
+
 [dev-dependencies]
 pallet-assets = { git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '4.0.0-dev' }
 pallet-balances = { git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '4.0.0-dev' }

@@ -67,9 +67,8 @@ pub mod fee {
 }
 
 pub mod id {
-	use polket_primitives::ObjectId;
 
-	pub const PRODUCER_ID: ObjectId = ObjectId::MAX - 1;
-	pub const VFE_BRAND_ID: ObjectId = ObjectId::MAX - 2;
-	pub const ASSET_ID: ObjectId = ObjectId::MAX - 3;
+	pub const PRODUCER_ID: &[u8] = b"produceridkey";
+	pub const VFE_BRAND_ID: &[u8] = b"vfebrandidkey";
+	pub const ASSET_ID: &[u8] = b"assetidkey";
 }

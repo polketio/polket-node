@@ -379,16 +379,19 @@ fn bind_device_should_not_work() {
 
 		let signature = key.sign(msg.as_ref());
 
-		assert_noop!(<VFE as ValidateUnsigned>::validate_unsigned(
-			TransactionSource::Local,
-			&Call::bind_device {
-				from: user.clone(),
-				puk: pub_key,
-				signature: signature.to_vec().try_into().unwrap(),
-				nonce: account_nonce,
-				bind_item: Some(1u32),
-			}
-		), dispatch_error_to_invalid(Error::<Test>::NonceMustGreatThanBefore.into()));
+		assert_noop!(
+			<VFE as ValidateUnsigned>::validate_unsigned(
+				TransactionSource::Local,
+				&Call::bind_device {
+					from: user.clone(),
+					puk: pub_key,
+					signature: signature.to_vec().try_into().unwrap(),
+					nonce: account_nonce,
+					bind_item: Some(1u32),
+				}
+			),
+			dispatch_error_to_invalid(Error::<Test>::NonceMustGreatThanBefore.into())
+		);
 
 		assert_noop!(
 			VFE::bind_device(
@@ -675,7 +678,8 @@ fn user_restore_unit_test() {
 		run_to_block(9);
 
 		// let call = Call::user_restore { who: user.clone() };
-		// assert_ok!(<VFE as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, &call));
+		// assert_ok!(<VFE as ValidateUnsigned>::validate_unsigned(TransactionSource::Local,
+		// &call));
 		assert_ok!(VFE::user_restore(Origin::signed(user.clone())));
 		System::assert_has_event(Event::VFE(crate::Event::UserEnergyRestored {
 			who: user.clone(),
@@ -708,7 +712,7 @@ fn restore_power_unit_test() {
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
 
 		Timestamp::set_timestamp(1668686716000);
-		
+
 		let report = JumpRopeTrainingReport {
 			timestamp: 1668676716,
 			training_duration: 183,
@@ -770,10 +774,7 @@ fn level_up_unit_test() {
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
 
-		assert_noop!(
-			VFE::level_up(Origin::signed(user.clone()), 1, 2),
-			Error::<Test>::VFENotExist
-		);
+		assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 2), Error::<Test>::VFENotExist);
 		assert_noop!(
 			VFE::level_up(Origin::signed(BOB), 1, 1),
 			Error::<Test>::OperationIsNotAllowed
@@ -842,10 +843,7 @@ fn increase_ability_unit_test() {
 		let (key, pub_key) = generate_device_keypair();
 		produce_device_bind_vfe(producer, user.clone(), pub_key, key.clone());
 
-		assert_noop!(
-			VFE::level_up(Origin::signed(user.clone()), 1, 2),
-			Error::<Test>::VFENotExist
-		);
+		assert_noop!(VFE::level_up(Origin::signed(user.clone()), 1, 2), Error::<Test>::VFENotExist);
 		assert_noop!(
 			VFE::level_up(Origin::signed(BOB), 1, 1),
 			Error::<Test>::OperationIsNotAllowed
@@ -888,11 +886,6 @@ fn increase_ability_unit_test() {
 			origin_vfe.current_ability.durable + add_point.durable
 		);
 	});
-}
-
-#[test]
-fn transfer_unit_test() {
-	new_test_ext().execute_with(|| {});
 }
 
 #[test]
@@ -974,4 +967,62 @@ fn training_report_encode_unit_test() {
 
 	let decode_report = JumpRopeTrainingReport::try_from(encode).expect("convert failed");
 	println!("decode = {:?}", decode_report);
+}
+
+#[test]
+fn transfer_unit_test() {
+	new_test_ext().execute_with(|| {
+		let producer = ALICE;
+		let user = DANY;
+		let to = BOB;
+		let (key, pub_key) = generate_device_keypair();
+		produce_device_bind_vfe(producer.clone(), user.clone(), pub_key, key.clone());
+
+		assert_noop!(
+			VFE::transfer(Origin::signed(user.clone()), 1, 2, to.clone()),
+			Error::<Test>::VFENotExist
+		);
+		assert_noop!(
+			VFE::transfer(Origin::signed(producer.clone()), 1, 1, to.clone()),
+			Error::<Test>::OperationIsNotAllowed
+		);
+
+		Timestamp::set_timestamp(1668686716000);
+
+		let report = JumpRopeTrainingReport {
+			timestamp: 1668676716,
+			training_duration: 183,
+			total_jump_rope_count: 738,
+			average_speed: 140,
+			max_speed: 230,
+			max_jump_rope_count: 738,
+			interruptions: 0,
+			jump_rope_duration: 183,
+		};
+		let report_encode: Vec<u8> = report.into();
+		let report_sig = key.sign(&report_encode);
+		assert_ok!(VFE::upload_training_report(
+			Origin::none(),
+			pub_key,
+			report_sig.to_vec().try_into().unwrap(),
+			report_encode.try_into().unwrap()
+		));
+
+		assert_noop!(
+			VFE::transfer(Origin::signed(user.clone()), 1, 1, to.clone()),
+			Error::<Test>::VFENotFullyCharged
+		);
+		assert_ok!(VFE::restore_power(Origin::signed(user.clone()), 1, 1, 6));
+		assert_ok!(VFE::transfer(Origin::signed(user.clone()), 1, 1, to.clone()));
+		System::assert_has_event(Event::VFE(crate::Event::Transferred {
+			brand_id: 1,
+			item_id: 1,
+			from: user.clone(),
+			to: to.clone(),
+		}));
+
+		let vfe_owner = <VFE as Inspect<AccountId>>::owner(&1u32, &1u32).expect("vfe can not find");
+		assert_eq!(vfe_owner, to);
+
+	});
 }

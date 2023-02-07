@@ -2,8 +2,10 @@
 // Copyright (C) 2021-2022 Polket.
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::mock::*;
+use crate::{mock::*, Config};
 use frame_support::{assert_noop, assert_ok, error::BadOrigin, traits::tokens::fungibles::Inspect};
+use sp_core::Hasher;
+use sp_runtime::traits::BlakeTwo256;
 
 #[test]
 fn compile_success() {
@@ -46,6 +48,10 @@ fn transfer_unit_test() {
 #[test]
 fn create_asset_should_work() {
 	new_test_ext().execute_with(|| {
+		let asset_id_key = BlakeTwo256::hash(b"assetidkey");
+		assert_eq!(asset_id_key, <Test as Config>::AssetId::get());
+		// println!("asset_id_key: {}", hex::encode(asset_id_key));
+		// println!("AssetId: {}", hex::encode(<Test as Config>::AssetId::get()));
 		assert_ok!(Currencies::create(
 			Origin::signed(ALICE),
 			ALICE,
@@ -55,5 +61,7 @@ fn create_asset_should_work() {
 			10
 		));
 		assert_eq!(Assets::minimum_balance(2), 99);
+		let next_id = UniqueId::next_object_id(asset_id_key);
+		assert_eq!(next_id, 3);
 	});
 }

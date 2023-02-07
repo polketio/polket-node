@@ -4149,6 +4149,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-buyback"
+version = "0.1.0"
+dependencies = [
+ "bitcoin_hashes",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal",
+ "num-integer",
+ "p256",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-support",
+ "pallet-unique-id",
+ "parity-scale-codec 3.1.5",
+ "scale-info",
+ "serde_json",
+ "sha2 0.10.2",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-collective"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.28#34a0621761c4a333cb2074ff720f7acbfb92dbb8"
