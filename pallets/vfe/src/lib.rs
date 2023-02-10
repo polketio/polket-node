@@ -45,8 +45,8 @@ use pallet_support::uniqueid::UniqueIdGenerator;
 use pallet_uniques::WeightInfo;
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedSub, One,
-		Saturating, StaticLookup, Zero, Hash,
+		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedSub, Hash, One,
+		Saturating, StaticLookup, Zero,
 	},
 	ModuleError, Permill, SaturatedConversion,
 };
@@ -169,33 +169,33 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	#[pallet::getter(fn incentive_token)]
+	#[pallet::getter(fn get_incentive_token)]
 	/// Record the AssetId used to award incentive tokens to users.
 	pub type IncentiveToken<T> = StorageValue<_, AssetIdOf<T>, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn nonce)]
+	#[pallet::getter(fn get_nonce)]
 	/// Self-incrementing nonce to obtain non-repeating random seeds
 	pub type Nonce<T> = StorageValue<_, u8, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn last_energy_recovery)]
+	#[pallet::getter(fn get_last_energy_recovery)]
 	/// Record the block number of the latest recoverable energy updated in the network
 	pub type LastEnergyRecovery<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn last_daily_earned_reset)]
+	#[pallet::getter(fn get_last_daily_earned_reset)]
 	/// Record the block number of the daily earning limit updated of the network
 	pub type LastDailyEarnedReset<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn producers)]
+	#[pallet::getter(fn get_producers)]
 	/// Records the currently registered producer.
 	pub(crate) type Producers<T: Config> =
 		StorageMap<_, Twox64Concat, T::ObjectId, Producer<T::ObjectId, T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn vfe_brands)]
+	#[pallet::getter(fn get_vfe_brands)]
 	/// Record the currently created VFE brand.
 	pub(crate) type VFEBrands<T: Config> = StorageMap<
 		_,
@@ -206,7 +206,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn users)]
+	#[pallet::getter(fn get_users)]
 	/// Record the user's daily training status
 	pub(crate) type Users<T: Config> = StorageMap<
 		_,
@@ -217,7 +217,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn devices)]
+	#[pallet::getter(fn get_devices)]
 	/// Record device status
 	pub(crate) type Devices<T: Config> = StorageMap<
 		_,
@@ -228,7 +228,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn device_vfes)]
+	#[pallet::getter(fn get_vfe_details)]
 	/// Record the detailed attribute value of VFE item
 	pub(super) type VFEDetails<T: Config> = StorageDoubleMap<
 		_,
@@ -1709,13 +1709,16 @@ where
 		Ok(())
 	}
 
-		/// The account ID of the Producer.
-	pub fn into_parent_id(parent_id: T::Hash, child_id: T::ObjectId) -> <T as frame_system::Config>::Hash {
+	/// The parent ID of the VFE Brand Id.
+	pub fn into_parent_id(
+		parent_id: T::Hash,
+		child_id: T::ObjectId,
+	) -> <T as frame_system::Config>::Hash {
 		let encoded = (parent_id, child_id).encode();
-		let key: <T as frame_system::Config>::Hash = <T as frame_system::Config>::Hashing::hash(encoded.as_ref());
+		let key: <T as frame_system::Config>::Hash =
+			<T as frame_system::Config>::Hashing::hash(encoded.as_ref());
 		key
 	}
-
 }
 
 /// convert a DispatchError to a custom InvalidTransaction with the inner code being the error
