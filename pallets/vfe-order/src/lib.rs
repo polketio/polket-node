@@ -6,7 +6,9 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency,
 			 fungibles::{Inspect as MultiAssets, Transfer, Mutate as MultiAssetsMutate},
-			 tokens::nonfungibles::{Create, Inspect, Mutate},
+			 tokens::nonfungibles::{
+				Create, Inspect, InspectEnumerable, Mutate, Transfer as NFTTransfer,
+			},
 	},
 	transactional,PalletId,
 };
@@ -20,12 +22,15 @@ use scale_info::{
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, One, Verify, AtLeast32BitUnsigned, StaticLookup,MaybeSerializeDeserialize},
+	traits::{AccountIdConversion, CheckedAdd, One, Verify, AtLeast32BitUnsigned, StaticLookup,MaybeSerializeDeserialize,
+		Saturating,CheckedSub,
+	
+	},
 	PerU16, RuntimeDebug, SaturatedConversion,
 };
 use pallet_support::fungibles::AssetFronze;
 use sp_std::vec::Vec;
-
+use frame_support::traits::fungibles;
 pub mod types;
 // mod mock;
 // mod tests;
@@ -92,7 +97,7 @@ pub mod pallet {
 		type StringLimit: Get<u32> + Clone;
 
 		/// pallet-uniques instance
-		type UniquesInstance: Copy + Clone + PartialEq + Eq;
+		type UniquesInstance: NFTTransfer<Self::AccountId,CollectionId = CollectionIdOf<Self>,ItemId = ItemIdOf<Self>>;
 
 		/// The pallet id
 		#[pallet::constant]
@@ -222,6 +227,7 @@ pub mod pallet {
 	/// Self-incrementing nonce to obtain non-repeating random seeds
 	pub type Nonce<T> = StorageValue<_, u8, ValueQuery>;
 
+	
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -372,7 +378,7 @@ pub mod pallet {
 			asset_id: AssetIdOf<T>,
 			#[pallet::compact] price: BalanceOf<T>,
 			#[pallet::compact] deadline: BlockNumberOf<T>,
-			items: Vec<(CollectionIdOf<T>, ItemIdOf<T>, ItemIdOf<T>)>,
+			items: BoundedVec<OrderItem<T::CollectionId, T::ItemId>, T::StringLimit>,
 			#[pallet::compact] commission_rate: PerU16,
 		) -> DispatchResultWithPostInfo {
 			let purchaser = ensure_signed(origin)?;
@@ -389,13 +395,13 @@ pub mod pallet {
 			// Reserve balances of `asset_id` for tokenOwner to accept this offer.
 			// T::Currencies::frozen_balance(&purchaser,asset_id, price)?;
 
-			// let mut offer = Offer {
-			// 	asset_id,
-			// 	price,
-			// 	deadline,
-			// 	items: Vec::with_capacity(items.len()),
-			// 	commission_rate,
-			// };
+			let mut offer = Offer {
+				asset_id,
+				price,
+				deadline,
+				// items: Vec::with_capacity(items.len()),
+				commission_rate,
+			};
 
 			// ensure_one_royalty!(items);
 			// reserve_and_push_tokens::<_, _, _, T::VFE>(None, &items, &mut offer.items)?;
@@ -495,6 +501,73 @@ impl<T: Config> Pallet<T> {
 
 		})
 	}
+
+	fn swap_assets(
+		pay_currency: &T::AccountId,
+		pay_vfes: &T::AccountId,
+		asset_id: AssetIdOf<T>,
+		price: BalanceOf<T>,
+		items: &[(CollectionIdOf<T>, ItemIdOf<T>)],
+		treasury: &T::AccountId,
+		platform_fee_rate: PerU16,
+		beneficiary: &T::AccountId,
+		royalty_rate: PerU16,
+		commission_agent: &Option<(bool, T::AccountId, PerU16)>,
+	) -> DispatchResult {
+		let trading_fee = platform_fee_rate.mul_ceil(price);
+		let royalty_fee = royalty_rate.mul_ceil(price);
+
+		<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
+			asset_id,
+			pay_currency,
+			&pay_vfes,
+			price,
+			false,
+		)?;
+
+		<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
+			asset_id,
+			pay_vfes,
+			&treasury,
+			trading_fee,
+			false,
+		)?;
+
+
+		<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
+			asset_id,
+			pay_vfes,
+			&beneficiary,
+			royalty_fee,
+			false,
+		)?;
+
+
+		if let Some((status, agent, rate)) = commission_agent {
+			if *status {
+				let r = price.saturating_sub(trading_fee).saturating_sub(royalty_fee);
+			
+
+				<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
+					asset_id,
+					pay_vfes,
+					&agent,
+					rate.mul_ceil(r),
+					false,
+				)?;
+		
+
+			}
+		}
+	
+		for (collectionId, itemId) in items {
+			// VFE::transfer(pay_vfes, pay_currency, *class_id, *instance_id, *quantity)?;
+			T::UniquesInstance::transfer(collectionId,itemId,pay_currency)?;
+		}
+		Ok(())
+	}
+
+
 
 	// pub fn treasury_account_id() -> T::AccountId {
 		// sp_runtime::traits::AccountIdConversion::<T::AccountId>::into_account(
