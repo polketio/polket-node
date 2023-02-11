@@ -5048,6 +5048,7 @@ dependencies = [
  "pallet-assets",
  "pallet-babe",
  "pallet-balances",
+ "pallet-buyback",
  "pallet-collective",
  "pallet-currencies",
  "pallet-currencies-rpc-runtime-api",

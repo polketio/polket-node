@@ -44,6 +44,8 @@ type PlanInfoOf<T> = PlanInfo<
 #[frame_support::pallet]
 pub mod pallet {
 
+	use frame_support::traits::tokens::DepositConsequence;
+
 	use super::*;
 
 	#[pallet::config]
@@ -108,21 +110,8 @@ pub mod pallet {
 		T::ObjectId,
 		Twox64Concat,
 		T::AccountId,
-		BalanceOf<T>,
+		ParticipantInfo<BalanceOf<T>>,
 		ValueQuery,
-	>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn get_participant_rewards)]
-	/// Record the rewards has been paybacked by those participating in the buyback plan.
-	pub(crate) type ParticipantRewards<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::ObjectId,
-		Twox64Concat,
-		T::AccountId,
-		BalanceOf<T>,
-		OptionQuery,
 	>;
 
 	#[pallet::event]
@@ -172,13 +161,27 @@ pub mod pallet {
 		AssetUnavailable,
 		/// plan is not existed
 		BuybackPlanNotExisted,
+		/// The planned start block is greater than the current block.
+		PlanStartGreaterThanCurrent,
+		/// The total number of current plans has reached the maximum.
+		TotalPlansReachedMax,
+		/// The locked amount is less than the minimum value.
+		LockedAmountLessThanMin,
+		/// Insufficient balance of assets
+		InsufficientBalance,
+		/// The seller number of current plans has reached the maximum.
+		SellersReachedMax,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: T::BlockNumber) -> Weight {
 			// handle `PlanInfo` status
+			let mut should_clear_plans = false;
 			let total_plans = TotalPlansCount::<T>::get();
+			if total_plans >= T::MaxPlans::get() {
+				should_clear_plans = true;
+			}
 			for (plan_id, plan) in BuybackPlans::<T>::iter() {
 				let _ = match plan.status {
 					PlanStatus::Upcoming => {
@@ -186,20 +189,22 @@ pub mod pallet {
 							let mut plan = plan;
 							plan.status = PlanStatus::InProgress;
 							BuybackPlans::<T>::insert(plan_id, plan);
+							Self::deposit_event(Event::<T>::PlanStarted { plan_id });
 						}
 						Ok(())
 					},
 					PlanStatus::InProgress => {
 						if plan.start + plan.period <= n {
 							let mut plan = plan;
-							plan.status = PlanStatus::InProgress;
+							plan.status = PlanStatus::Completed;
 							BuybackPlans::<T>::insert(plan_id, plan);
+							Self::deposit_event(Event::<T>::PlanCompleted { plan_id });
 						}
 						Ok(())
 					},
 					PlanStatus::Completed => Self::do_payback(plan_id),
 					PlanStatus::AllPaybacked =>
-						if total_plans >= T::MaxPlans::get() {
+						if should_clear_plans {
 							Self::clear_paybacked_plan(plan_id)
 						} else {
 							Ok(())
@@ -226,28 +231,39 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			sell_asset_id: AssetIdOf<T>,
 			buy_asset_id: AssetIdOf<T>,
-			min_sell: BalanceOf<T>,
-			buyback_amount: BalanceOf<T>,
-			start: T::BlockNumber,
-			period: T::BlockNumber,
+			#[pallet::compact] min_sell: BalanceOf<T>,
+			#[pallet::compact] buyback_amount: BalanceOf<T>,
+			#[pallet::compact] seller_limit: u32,
+			#[pallet::compact] start: T::BlockNumber,
+			#[pallet::compact] period: T::BlockNumber,
 			mode: BuybackMode,
 		) -> DispatchResult {
 			// 1. check if origin is `BuybackOrigin`.
 			let creator = T::BuybackOrigin::ensure_origin(origin.clone())?;
-			let total_plans = BuybackPlans::<T>::iter_keys().count() as u32;
-			ensure!(total_plans < T::MaxPlans::get(), Error::<T>::ValueOverflow);
+			let total_count = TotalPlansCount::<T>::get();
+			ensure!(total_count < T::MaxPlans::get(), Error::<T>::TotalPlansReachedMax);
 
-			// 2. Check if `sell_asset_id` existed and `can_withdraw` is true.
+			// auto increase ID
+			let plan_id = T::UniqueId::generate_object_id(T::PlanId::get())?;
+
+			ensure!(!buyback_amount.is_zero(), Error::<T>::ValueInvalid);
+
+			// 2. Check if `sell_asset_id`  and `buy_asset_id` is existed.
+			let can_deposit = T::Currencies::can_deposit(
+				sell_asset_id,
+				&Self::into_account_id(plan_id),
+				min_sell,
+				false,
+			);
+			ensure!(can_deposit == DepositConsequence::Success, Error::<T>::AssetUnavailable);
 			let can_withdraw = T::Currencies::can_withdraw(buy_asset_id, &creator, buyback_amount);
-			ensure!(can_withdraw == WithdrawConsequence::Success, Error::<T>::AssetUnavailable);
+			ensure!(can_withdraw == WithdrawConsequence::Success, Error::<T>::InsufficientBalance);
 
 			// 3. Check if `start` block number greater than current block number.
 			let block_number = frame_system::Pallet::<T>::block_number();
-			ensure!(start > block_number, Error::<T>::ValueInvalid);
+			ensure!(start > block_number, Error::<T>::PlanStartGreaterThanCurrent);
 
 			// 4. Transfer `buy_asset_id` to `plan_account_id` from `creator`.
-			// auto increase ID
-			let plan_id = T::UniqueId::generate_object_id(T::PlanId::get())?;
 			<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
 				buy_asset_id,
 				&creator,
@@ -262,6 +278,7 @@ pub mod pallet {
 				sell_asset_id,
 				seller_amount: 0u32,
 				min_sell,
+				seller_limit,
 				start,
 				period,
 				creator,
@@ -272,8 +289,7 @@ pub mod pallet {
 			};
 			BuybackPlans::<T>::insert(plan_id, plan_info.clone());
 
-			let total_count = TotalPlansCount::<T>::get();
-			TotalPlansCount::<T>::put(total_count.wrapping_add(1));
+			TotalPlansCount::<T>::put(total_count.saturating_add(1));
 
 			// 6. Emit Event.
 			Self::deposit_event(Event::PlanCreated { plan_id, plan_info });
@@ -285,7 +301,10 @@ pub mod pallet {
 		/// - origin BuybackOrigin
 		/// - plan_id u64
 		#[pallet::weight(10_000)]
-		pub fn cancel_plan(origin: OriginFor<T>, plan_id: T::ObjectId) -> DispatchResult {
+		pub fn cancel_plan(
+			origin: OriginFor<T>,
+			#[pallet::compact] plan_id: T::ObjectId,
+		) -> DispatchResult {
 			let who = T::BuybackOrigin::ensure_origin(origin.clone())?;
 			BuybackPlans::<T>::try_mutate_exists(plan_id, |maybe_plan| -> DispatchResult {
 				// 1. check if `plan_id` existed.
@@ -297,7 +316,20 @@ pub mod pallet {
 				// 3. check if origin is the creator of this `plan_id`.
 				ensure!(who == plan.creator, Error::<T>::OperationIsNotAllowed);
 
+				// 4. Return buyback asset of this plan to creator
+				<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
+					plan.buy_asset_id,
+					&Self::into_account_id(plan_id),
+					&plan.creator,
+					plan.total_buy,
+					false,
+				)?;
+
 				*maybe_plan = None;
+
+				let total_count = TotalPlansCount::<T>::get();
+				TotalPlansCount::<T>::put(total_count.saturating_sub(1));
+
 				// 4. Emit Event.
 				Self::deposit_event(Event::PlanCanceled { plan_id });
 				Ok(())
@@ -313,8 +345,8 @@ pub mod pallet {
 		#[transactional]
 		pub fn seller_register(
 			origin: OriginFor<T>,
-			plan_id: T::ObjectId,
-			amount: BalanceOf<T>,
+			#[pallet::compact] plan_id: T::ObjectId,
+			#[pallet::compact] amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = T::ParticipantOrigin::ensure_origin(origin.clone())?;
 			BuybackPlans::<T>::try_mutate(plan_id, |maybe_plan| -> DispatchResult {
@@ -323,10 +355,10 @@ pub mod pallet {
 				// 2. check if plan status` is `InProgress`. Only `InProgress` plan can be
 				// participated.
 				ensure!(plan.status == PlanStatus::InProgress, Error::<T>::OperationIsNotAllowed);
-
+				ensure!(plan.seller_amount < plan.seller_limit, Error::<T>::SellersReachedMax);
 				// 3. Check if the amount locked by the participant is greater than the
 				// minimum amount.
-				ensure!(amount > plan.min_sell, Error::<T>::ValueInvalid);
+				ensure!(amount > plan.min_sell, Error::<T>::LockedAmountLessThanMin);
 
 				// 4. Transfer `sell_asset_id` to `plan_account_id` from `origin`.
 				<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
@@ -337,8 +369,11 @@ pub mod pallet {
 					true,
 				)?;
 
-				// 5. Insert data into `ParticipantRegistrations`.
-				ParticipantRegistrations::<T>::insert(plan_id, who.clone(), amount);
+				// 5. Accumulatively participant info and insert data into
+				// `ParticipantRegistrations`.
+				let mut participant_info = ParticipantRegistrations::<T>::get(&plan_id, &who);
+				participant_info.locked = participant_info.locked.saturating_add(amount);
+				ParticipantRegistrations::<T>::insert(&plan_id, &who, participant_info);
 
 				// 6. Update `PlanInfo`.
 				plan.total_sell = plan.total_sell + amount;
@@ -361,7 +396,7 @@ pub mod pallet {
 		pub fn withdraw(
 			origin: OriginFor<T>,
 			who: T::AccountId,
-			plan_id: T::ObjectId,
+			#[pallet::compact] plan_id: T::ObjectId,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			Self::do_withdraw(who, plan_id)
@@ -374,7 +409,10 @@ pub mod pallet {
 		/// - plan_id u64
 		#[pallet::weight(10_000)]
 		#[transactional]
-		pub fn payback(origin: OriginFor<T>, plan_id: T::ObjectId) -> DispatchResult {
+		pub fn payback(
+			origin: OriginFor<T>,
+			#[pallet::compact] plan_id: T::ObjectId,
+		) -> DispatchResult {
 			ensure_signed(origin)?;
 			Self::do_payback(plan_id)
 		}
@@ -405,10 +443,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(plan.status == PlanStatus::Completed, Error::<T>::OperationIsNotAllowed);
 
 		// 3. Check if `origin` in `ParticipantRegistrations` of this plan.
-		let locked_amount = ParticipantRegistrations::<T>::get(&plan_id, &who);
-		ensure!(!locked_amount.is_zero(), Error::<T>::OperationIsNotAllowed);
+		let mut participant_info = ParticipantRegistrations::<T>::get(&plan_id, &who);
+		ensure!(!participant_info.locked.is_zero(), Error::<T>::OperationIsNotAllowed);
 		// 4. Transfer `buy_asset_id` to `who` from `plan_account_id`.
-		let rewards = locked_amount
+		let rewards = participant_info
+			.locked
 			.saturating_mul(plan.total_buy)
 			.checked_div(&plan.total_sell)
 			.ok_or(Error::<T>::ValueInvalid)?;
@@ -417,13 +456,12 @@ impl<T: Config> Pallet<T> {
 			&Self::into_account_id(plan_id),
 			&who,
 			rewards,
-			true,
+			false,
 		)?;
-
-		// 5. Delete `who` from `ParticipantRegistrations`.
-		ParticipantRegistrations::<T>::remove(&plan_id, &who);
-		// Record rewards of participant.
-		ParticipantRewards::<T>::insert(&plan_id, &who, rewards);
+		participant_info.rewards = rewards;
+		participant_info.withdrew = true;
+		// 5. Record rewards of participant.
+		ParticipantRegistrations::<T>::insert(&plan_id, &who, participant_info);
 
 		// 6. Emit Event.
 		Self::deposit_event(Event::Withdrew { who, plan_id, rewards });
@@ -496,13 +534,12 @@ impl<T: Config> Pallet<T> {
 			ensure!(plan.status == PlanStatus::AllPaybacked, Error::<T>::OperationIsNotAllowed);
 
 			*maybe_plan = None;
-			ParticipantRegistrations::<T>::drain_prefix(plan_id);
-			ParticipantRewards::<T>::drain_prefix(plan_id);
+			let _ = ParticipantRegistrations::<T>::clear_prefix(plan_id, plan.seller_limit, None);
 
 			Self::deposit_event(Event::<T>::PlanCleared { plan_id });
 
 			let total_count = TotalPlansCount::<T>::get();
-			TotalPlansCount::<T>::put(total_count.wrapping_sub(1));
+			TotalPlansCount::<T>::put(total_count.saturating_sub(1));
 
 			Ok(())
 		})

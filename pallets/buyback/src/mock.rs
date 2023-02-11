@@ -17,6 +17,9 @@ use sp_runtime::{
 pub type AccountId = AccountId32;
 pub const ALICE: AccountId = AccountId::new([1u8; 32]);
 pub const BOB: AccountId = AccountId::new([2u8; 32]);
+pub const CHARLIE: AccountId = AccountId::new([3u8; 32]);
+pub const DAVE: AccountId = AccountId::new([4u8; 32]);
+pub const EVE: AccountId = AccountId::new([5u8; 32]);
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -138,7 +141,7 @@ impl FrozenBalance<u32, AccountId, u64> for TestFreezer {
 impl pallet_unique_id::Config for Test {
 	type ParentId = Self::Hash;
 	type ObjectId = u32;
-	type StartId = ConstU32<2u32>;
+	type StartId = ConstU32<1u32>;
 	type MaxId = ConstU32<100u32>;
 }
 
@@ -159,9 +162,9 @@ impl pallet_currencies::Config for Test {
 
 parameter_types! {
 	pub PlanId: H256 = BlakeTwo256::hash(b"planidkey");
-	pub const IterationsLimit: u32 = 100;
+	pub const IterationsLimit: u32 = 5;
 	pub const BuybackPalletId: PalletId = PalletId(*b"poc/bybk");
-	pub const MaxPlans: u32 = 100;
+	pub const MaxPlans: u32 = 20;
 }
 
 impl Config for Test {
@@ -180,7 +183,7 @@ impl Config for Test {
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
-	pallet_balances::GenesisConfig::<Test> { balances: vec![(ALICE, 10000000000)] }
+	pallet_balances::GenesisConfig::<Test> { balances: vec![(ALICE, 1000000)] }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
@@ -193,9 +196,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		metadata: vec![
 			// id, name, symbol, decimals
 			(0, "Polket Native Token".into(), "PNT".into(), 12),
-			(1, "To Earn Fun".into(), "FUN".into(), 8),
+			(1, "To Earn Fun".into(), "FUN".into(), 12),
 		],
-		accounts: vec![(1, BOB, 1000)],
+		accounts: vec![
+			(1, BOB, 1000000),
+			(1, CHARLIE, 1000000),
+			(1, DAVE, 1000000),
+			(1, EVE, 1000000),
+		],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -203,4 +211,16 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+pub(crate) fn run_to_block(n: u64) {
+	while System::block_number() < n {
+		if System::block_number() > 1 {
+			Buyback::on_finalize(System::block_number());
+			System::on_finalize(System::block_number());
+		}
+		System::set_block_number(System::block_number() + 1);
+		System::on_initialize(System::block_number());
+		Buyback::on_initialize(System::block_number());
+	}
 }
