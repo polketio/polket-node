@@ -50,8 +50,8 @@ pub use types::*;
 // 	}
 // }
 
-pub type ItemIdOf<T> = <T as pallet::Config>::ItemId;
-pub type CollectionIdOf<T> = <T as pallet::Config>::CollectionId;
+pub type ItemIdOf<T> = <T as Config>::ItemId;
+pub type CollectionIdOf<T> = <T as Config>::CollectionId;
 type BalanceOf<T> =
 <<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::Balance;
 type AssetIdOf<T> =
@@ -62,7 +62,7 @@ pub type BlockNumberOf<T> = <T as frame_system::Config>::BlockNumber;
 
 pub type OrderOf<T> = Order<AssetIdOf<T>,BalanceOf<T>, BlockNumberOf<T>,CollectionIdOf<T>,ItemIdOf<T>,<T as Config>::StringLimit >;
 
-pub type OfferOf<T> = Offer<AssetIdOf<T>,BalanceOf<T>, BlockNumberOf<T>>;
+pub type OfferOf<T> = Offer<AssetIdOf<T>,BalanceOf<T>, BlockNumberOf<T>,CollectionIdOf<T>,ItemIdOf<T>,<T as Config>::StringLimit>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -97,7 +97,7 @@ pub mod pallet {
 		type StringLimit: Get<u32> + Clone;
 
 		/// pallet-uniques instance
-		type UniquesInstance: NFTTransfer<Self::AccountId,CollectionId = CollectionIdOf<Self>,ItemId = ItemIdOf<Self>>;
+		type UniquesInstance: NFTTransfer<Self::AccountId,CollectionId = Self::CollectionId,ItemId = Self::ItemId>;
 
 		/// The pallet id
 		#[pallet::constant]
@@ -110,6 +110,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type OrderParentId: Get<Self::Hash>;
 
+		/// The offer-id parent key
+		#[pallet::constant]
+		type OfferId: Get<Self::Hash>;
+
+		/// The order-id parent key
+		#[pallet::constant]
+		type OrderId: Get<Self::Hash>;
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
 		type UniqueId: UniqueIdGenerator<ParentId = Self::Hash, ObjectId = Self::ObjectId>;
@@ -225,7 +232,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn nonce)]
 	/// Self-incrementing nonce to obtain non-repeating random seeds
-	pub type Nonce<T> = StorageValue<_, u8, ValueQuery>;
+	pub type OrderId<T> = StorageValue<_, u8, ValueQuery>;
 
 	
 
@@ -274,17 +281,28 @@ pub mod pallet {
 				deposit,
 				price,
 				deadline,
-				items: items,
+				items: items.clone(),
 				commission_rate,
 			};
+
+			let order_id = T::UniqueId::generate_object_id(T::OrderParentId::get())?;
+
+			let order_account_id = Self::into_account_id(order_id);
+
+			// let item_vec = &items[..];
+
+			for  item in  items{
+				// VFE::transfer(pay_vfes, pay_currency, *class_id, *instance_id, *quantity)?;
+				T::UniquesInstance::transfer(&item.collection_id,&item.item_id,&order_account_id)?;
+			}
 
 			// ensure_one_royalty!(items);
 			// reserve_and_push_tokens::<_, _, _, T::VFE>(Some(&who), &items, &mut order.items)?;
 
 
-			let order_id = T::UniqueId::generate_object_id(T::OrderParentId::get())?;
+			
 			Orders::<T>::insert(&who, order_id, order);
-			// Self::deposit_event(Event::CreatedOrder(who, order_id));
+			Self::deposit_event(Event::CreatedOrder(who, order_id));
 			Ok(().into())
 		}
 
@@ -311,33 +329,44 @@ pub mod pallet {
 				ensure!(&purchaser != c, Error::<T>::SenderTakeCommission);
 			}
 
-			// let order: OrderOf<T> = Self::delete_order(&order_owner, order_id)?;
+			let order: OrderOf<T> = Self::delete_order(&order_owner, order_id)?;
+
+
+
+			let order_account_id = Self::into_account_id(order_id);
+
+			// let item_vec = &items[..];
+
+			for  item in  order.items.clone(){
+				// VFE::transfer(pay_vfes, pay_currency, *class_id, *instance_id, *quantity)?;
+				T::UniquesInstance::transfer(&item.collection_id,&item.item_id,&order_account_id)?;
+			}
+			let items_temp = &order.items[..];
 
 			// Skip check deadline of orders
 			// Orders are supposed to be valid until taken or cancelled
-
 			// let (items, commission_agent) = to_item_vec!(order, commission_agent);
 			// let (beneficiary, royalty_rate) = ensure_one_royalty!(items);
-			// swap_assets::<T::Currencies, T::VFE, _, _, _, _>(
-			// 	&purchaser,
-			// 	&order_owner,
-			// 	order.asset_id,
-			// 	order.price,
-			// 	&items,
-			// 	&Self::treasury_account_id(),
-			// 	T::ExtraConfig::get_platform_fee_rate(),
-			// 	&beneficiary,
-			// 	royalty_rate,
-			// 	&commission_agent,
-			// )?;
+			Self::swap_assets(
+				&purchaser,
+				&order_owner,
+				order.asset_id,
+				order.price,
+				items_temp,
+				&order_owner,
+				PerU16::from_percent(0),
+				&order_owner,
+				PerU16::from_percent(0),
+				&None,
+			)?;
 
-			// Self::deposit_event(Event::TakenOrder(
-			// 	purchaser,
-			// 	order_owner,
-			// 	order_id,
-			// 	commission_agent,
-			// 	commission_data,
-			// ));
+			Self::deposit_event(Event::TakenOrder(
+				purchaser,
+				order_owner,
+				order_id,
+				None,
+				commission_data,
+			));
 			Ok(().into())
 		}
 
@@ -352,6 +381,14 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			// Self::delete_order(&who, order_id)?;
+			let order: OrderOf<T> = Self::delete_order(&who, order_id)?;
+
+			// let order_account_id = Self::into_account_id(order_id);
+
+			for  item in  order.items.clone(){
+				// VFE::transfer(pay_vfes, pay_currency, *class_id, *instance_id, *quantity)?;
+				T::UniquesInstance::transfer(&item.collection_id,&item.item_id,&who)?;
+			}
 			Self::deposit_event(Event::RemovedOrder(who, order_id));
 			Ok(().into())
 		}
@@ -392,23 +429,35 @@ pub mod pallet {
 			// 	Error::<T>::InvalidCommissionRate
 			// );
 
+			let offer_id  = T::UniqueId::generate_object_id(T::OfferId::get())?;
+
 			// Reserve balances of `asset_id` for tokenOwner to accept this offer.
 			// T::Currencies::frozen_balance(&purchaser,asset_id, price)?;
 
-			let mut offer = Offer {
+
+			<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
+				asset_id,
+				&purchaser,
+				&Self::into_account_id(offer_id),
+				price,
+				true,
+			)?;
+
+
+			let  offer = Offer {
 				asset_id,
 				price,
 				deadline,
-				// items: Vec::with_capacity(items.len()),
+				items: items,
 				commission_rate,
 			};
 
 			// ensure_one_royalty!(items);
 			// reserve_and_push_tokens::<_, _, _, T::VFE>(None, &items, &mut offer.items)?;
 
-			// let offer_id = T::ExtraConfig::get_then_inc_id()?;
-			// Offers::<T>::insert(&purchaser, offer_id, offer);
-			// Self::deposit_event(Event::CreatedOffer(purchaser, offer_id));
+			
+			Offers::<T>::insert(&purchaser, offer_id, offer);
+			Self::deposit_event(Event::CreatedOffer(purchaser, offer_id));
 			Ok(().into())
 		}
 
@@ -502,12 +551,23 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+
+	fn get_and_increment_order_id() -> Vec<u8> {
+		let nonce = OrderId::<T>::get();
+		OrderId::<T>::put(nonce.wrapping_add(1));
+		nonce.encode()
+	}
+
+	pub fn into_account_id(id: T::ObjectId) -> T::AccountId {
+		T::PalletId::get().into_sub_account_truncating(id)
+	}
+
 	fn swap_assets(
 		pay_currency: &T::AccountId,
 		pay_vfes: &T::AccountId,
 		asset_id: AssetIdOf<T>,
 		price: BalanceOf<T>,
-		items: &[(CollectionIdOf<T>, ItemIdOf<T>)],
+		items: &[(OrderItem<T::CollectionId, T::ItemId>)],
 		treasury: &T::AccountId,
 		platform_fee_rate: PerU16,
 		beneficiary: &T::AccountId,
@@ -560,9 +620,9 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 	
-		for (collectionId, itemId) in items {
+		for item in items {
 			// VFE::transfer(pay_vfes, pay_currency, *class_id, *instance_id, *quantity)?;
-			T::UniquesInstance::transfer(collectionId,itemId,pay_currency)?;
+			T::UniquesInstance::transfer(&item.collection_id,&item.item_id,pay_currency)?;
 		}
 		Ok(())
 	}

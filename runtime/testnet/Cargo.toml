@@ -71,7 +71,7 @@ pallet-currencies-rpc-runtime-api = {default-features = false, path = '../../pal
 # pallet-buyback = {default-features = false, path = '../../pallets/buyback', version = '0.1.0'}
 pallet-vfe = {default-features = false, path = '../../pallets/vfe', version = '0.1.0'}
 pallet-vfe-rpc-runtime-api = {default-features = false, path = '../../pallets/vfe/rpc/runtime-api', version = '0.1.0'}
-
+pallet-vfe-order = {default-features = false, path = '../../pallets/vfe-order', version = '0.1.0'}
 runtime-common = {default-features = false, path = '../common', version = '0.1.0'}
 
 [features]
@@ -118,6 +118,7 @@ std = [
     'runtime-common/std',
     'pallet-support/std',
     'pallet-vfe/std',
+    'pallet-vfe-order/std',
 	'pallet-identity-extra/std',
     'pallet-unique-id/std',
     'pallet-session/std',

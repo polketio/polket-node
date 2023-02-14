@@ -21,13 +21,11 @@ pub type GlobalId = u64;
 pub struct OrderItem<CollectionId, ItemId> {
 	/// class id
 	// #[codec(compact)]
-	pub class_id: CollectionId,
+	pub collection_id: CollectionId,
 	/// token id
 	// #[codec(compact)]
-	pub instance_id: ItemId,
-	/// quantity
-	// #[codec(compact)]
-	pub quantity: ItemId,
+	pub item_id: ItemId,
+
 }
 
 
@@ -52,7 +50,8 @@ pub struct Order<AssetId,Balance, BlockNumber,CollectionId, ItemId,StringLimit: 
 
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo,MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Offer<AssetId,Balance, BlockNumber> {
+#[scale_info(skip_type_params(StringLimit))]
+pub struct Offer<AssetId,Balance, BlockNumber,CollectionId, ItemId,StringLimit: Get<u32>> {
 	/// currency ID.
 	pub asset_id: AssetId,
 	/// Price of this Instance.
@@ -60,7 +59,7 @@ pub struct Offer<AssetId,Balance, BlockNumber> {
 	/// This order will be invalidated after `deadline` block number.
 	pub deadline: BlockNumber,
 	/// vfe list
-	// pub items: Vec<OrderItem<CollectionId, ItemId>>,
+	pub items: BoundedVec<OrderItem<CollectionId, ItemId>, StringLimit>,
 	/// commission rate
 	#[codec(compact)]
 	pub commission_rate: PerU16,
