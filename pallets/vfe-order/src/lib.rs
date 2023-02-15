@@ -60,9 +60,9 @@ type AssetIdOf<T> =
 pub type BlockNumberOf<T> = <T as frame_system::Config>::BlockNumber;
 
 
-pub type OrderOf<T> = Order<AssetIdOf<T>,BalanceOf<T>, BlockNumberOf<T>,CollectionIdOf<T>,ItemIdOf<T>,<T as Config>::StringLimit >;
+pub type OrderOf<T> = Order<AssetIdOf<T>,BalanceOf<T>, BlockNumberOf<T>, BoundedVec<OrderItem<CollectionIdOf<T>, ItemIdOf<T>>, <T as Config>::StringLimit>>;
 
-pub type OfferOf<T> = Offer<AssetIdOf<T>,BalanceOf<T>, BlockNumberOf<T>,CollectionIdOf<T>,ItemIdOf<T>,<T as Config>::StringLimit>;
+pub type OfferOf<T> = Offer<AssetIdOf<T>,BalanceOf<T>, BlockNumberOf<T>, BoundedVec<OrderItem<CollectionIdOf<T>, ItemIdOf<T>>, <T as Config>::StringLimit>>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -92,7 +92,7 @@ pub mod pallet {
 
 		/// The maximum length of data stored on-chain.
 		#[pallet::constant]
-		type StringLimit: Get<u32> + Clone;
+		type StringLimit: Get<u32>;
 
 		/// pallet-uniques instance
 		type UniquesInstance: NFTTransfer<Self::AccountId,CollectionId = Self::CollectionId,ItemId = Self::ItemId>;
