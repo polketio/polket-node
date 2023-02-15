@@ -76,8 +76,6 @@ pub mod pallet {
 		type Currencies: MultiAssets<Self::AccountId>
 			+ Transfer<Self::AccountId>
 			+ MultiAssetsMutate<Self::AccountId>;
-		/// The currency mechanism.
-		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// Identifier for the class of asset.
 		type CollectionId: Member + Parameter + Default + Copy +MaxEncodedLen + HasCompact;
@@ -106,9 +104,6 @@ pub mod pallet {
 		/// Unify the value types of ProudcerId, CollectionId, ItemId, AssetId
 		type ObjectId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 
-		/// The order-id parent key
-		#[pallet::constant]
-		type OrderParentId: Get<Self::Hash>;
 
 		/// The offer-id parent key
 		#[pallet::constant]
@@ -122,7 +117,6 @@ pub mod pallet {
 		type UniqueId: UniqueIdGenerator<ParentId = Self::Hash, ObjectId = Self::ObjectId>;
 		
 
-		type UniqueTradeGenerator: UniqueTradeGenerator<AccountId = Self::AccountId,CollectionId = Self::CollectionId,ItemId = Self::ItemId>;
 
 	}
 
@@ -285,7 +279,7 @@ pub mod pallet {
 				commission_rate,
 			};
 
-			let order_id = T::UniqueId::generate_object_id(T::OrderParentId::get())?;
+			let order_id = T::UniqueId::generate_object_id(T::OrderId::get())?;
 
 			let order_account_id = Self::into_account_id(order_id);
 
@@ -567,7 +561,7 @@ impl<T: Config> Pallet<T> {
 		pay_vfes: &T::AccountId,
 		asset_id: AssetIdOf<T>,
 		price: BalanceOf<T>,
-		items: &[(OrderItem<T::CollectionId, T::ItemId>)],
+		items: &[OrderItem<T::CollectionId, T::ItemId>],
 		treasury: &T::AccountId,
 		platform_fee_rate: PerU16,
 		beneficiary: &T::AccountId,

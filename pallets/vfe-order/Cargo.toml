@@ -1,5 +1,5 @@
 [package]
-name = "vfe-order"
+name = "pallet-vfe-order"
 version = '0.1.0'
 description = 'This module providesmerchants to create coupons for use in their sales activities.'
 authors = ['Polket <https://www.polket.io>']

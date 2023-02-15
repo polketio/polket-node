@@ -4152,22 +4152,19 @@ dependencies = [
 name = "pallet-buyback"
 version = "0.1.0"
 dependencies = [
- "bitcoin_hashes",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
- "hex-literal",
  "num-integer",
- "p256",
  "pallet-assets",
  "pallet-balances",
+ "pallet-currencies",
  "pallet-support",
  "pallet-unique-id",
  "parity-scale-codec 3.1.5",
  "scale-info",
  "serde_json",
- "sha2 0.10.2",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -4639,6 +4636,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-vfe-order"
+version = "0.1.0"
+dependencies = [
+ "bitcoin_hashes",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "num-integer",
+ "p256",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-support",
+ "pallet-unique-id",
+ "pallet-uniques",
+ "parity-scale-codec 3.1.5",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-vfe-rpc"
 version = "0.1.0"
 dependencies = [
@@ -5051,6 +5074,7 @@ dependencies = [
  "pallet-assets",
  "pallet-babe",
  "pallet-balances",
+ "pallet-buyback",
  "pallet-collective",
  "pallet-currencies",
  "pallet-currencies-rpc-runtime-api",
@@ -5073,6 +5097,7 @@ dependencies = [
  "pallet-uniques",
  "pallet-utility",
  "pallet-vfe",
+ "pallet-vfe-order",
  "pallet-vfe-rpc-runtime-api",
  "parity-scale-codec 3.1.5",
  "polket-primitives",
@@ -8718,32 +8743,6 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
-
-[[package]]
-name = "vfe-order"
-version = "0.1.0"
-dependencies = [
- "bitcoin_hashes",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "num-integer",
- "p256",
- "pallet-assets",
- "pallet-balances",
- "pallet-support",
- "pallet-unique-id",
- "pallet-uniques",
- "parity-scale-codec 3.1.5",
- "rust_decimal",
- "rust_decimal_macros",
- "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
 
 [[package]]
 name = "void"

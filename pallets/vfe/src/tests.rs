@@ -86,7 +86,7 @@ fn set_incentive_token_unit_test() {
 		assert_noop!(VFE::set_incentive_token(Origin::signed(BOB), 1), DispatchError::BadOrigin);
 		assert_ok!(VFE::set_incentive_token(Origin::root(), 1));
 		System::assert_has_event(Event::VFE(crate::Event::IncentiveTokenSet { asset_id: 1 }));
-		let incentive_token = VFE::incentive_token().expect("incentive token not set");
+		let incentive_token = VFE::get_incentive_token().expect("incentive token not set");
 		assert_eq!(incentive_token, 1);
 	});
 }
@@ -163,7 +163,7 @@ fn create_vfe_brand_unit_test() {
 			rarity: VFERarity::Common,
 			note: bvec![0u8; 20],
 		}));
-		let vfe_brand = VFE::vfe_brands(1).expect("can not find vfe brand");
+		let vfe_brand = VFE::get_vfe_brands(1).expect("can not find vfe brand");
 		assert_eq!(vfe_brand.sport_type, SportType::JumpRope);
 		assert_eq!(vfe_brand.rarity, VFERarity::Common);
 
@@ -1023,6 +1023,5 @@ fn transfer_unit_test() {
 
 		let vfe_owner = <VFE as Inspect<AccountId>>::owner(&1u32, &1u32).expect("vfe can not find");
 		assert_eq!(vfe_owner, to);
-
 	});
 }

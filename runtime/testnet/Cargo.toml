@@ -68,7 +68,7 @@ pallet-support = {default-features = false, path = '../../pallets/support', vers
 pallet-unique-id = {default-features = false, path = '../../pallets/unique-id', version = '0.1.0'}
 pallet-currencies = {default-features = false, path = '../../pallets/currencies', version = '0.1.0'}
 pallet-currencies-rpc-runtime-api = {default-features = false, path = '../../pallets/currencies/rpc/runtime-api', version = '0.1.0'}
-# pallet-buyback = {default-features = false, path = '../../pallets/buyback', version = '0.1.0'}
+pallet-buyback = {default-features = false, path = '../../pallets/buyback', version = '0.1.0'}
 pallet-vfe = {default-features = false, path = '../../pallets/vfe', version = '0.1.0'}
 pallet-vfe-rpc-runtime-api = {default-features = false, path = '../../pallets/vfe/rpc/runtime-api', version = '0.1.0'}
 pallet-vfe-order = {default-features = false, path = '../../pallets/vfe-order', version = '0.1.0'}
@@ -132,4 +132,5 @@ std = [
     'pallet-multisig/std',
     'pallet-vfe-rpc-runtime-api/std',
     'pallet-currencies-rpc-runtime-api/std',
+    'pallet-buyback/std',
 ]

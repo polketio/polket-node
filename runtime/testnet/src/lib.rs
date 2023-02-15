@@ -73,7 +73,11 @@ pub use polket_primitives::*;
 pub mod constants;
 
 use crate::constants::currency::MILLICENTS;
-use constants::{currency::DOLLARS, id::{ASSET_ID, PRODUCER_ID, VFE_BRAND_ID}, time::*};
+use constants::{
+	currency::DOLLARS,
+	id::{ASSET_ID, BUYBACK_PLAN_ID, PRODUCER_ID, VFE_BRAND_ID,ORDER_ID,OFFER_ID},
+	time::*,
+};
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -644,7 +648,12 @@ impl pallet_multisig::Config for Runtime {
 parameter_types! {
 	pub ProducerId: Hash = BlakeTwo256::hash(PRODUCER_ID);
 	pub VFEBrandId: Hash = BlakeTwo256::hash(VFE_BRAND_ID);
+
+	pub OrderId: Hash = BlakeTwo256::hash(ORDER_ID);
+	pub OfferId: Hash = BlakeTwo256::hash(OFFER_ID);
+
 	pub const VFEPalletId: PalletId = PalletId(*b"poke/vfe");
+	pub const VFEOrderPalletId: PalletId = PalletId(*b"poke/ord");
 	pub const IncentiveToken: ObjectId = 1;
 	pub const UnbindFee: Balance = MILLICENTS;
 	pub const CostUnit: Balance = DOLLARS / 10;
@@ -683,6 +692,41 @@ impl pallet_vfe::Config for Runtime {
 	type UserVFEMintedProfitRatio = UserVFEMintedProfitRatio;
 }
 
+impl pallet_vfe_order::Config for Runtime {
+	type Event = Event;
+	type Currencies = Currencies;
+	type CollectionId = ObjectId;
+	type ItemId = ObjectId;
+	type ObjectId = ObjectId;
+	type StringLimit = StringLimit;
+	type UniqueId = UniqueId;
+	type UniquesInstance = VFE;
+	type PalletId = VFEOrderPalletId;
+	type OrderId = OrderId;
+	type OfferId = OfferId;
+
+}
+
+parameter_types! {
+	pub PlanId: Hash = BlakeTwo256::hash(BUYBACK_PLAN_ID);
+	pub const IterationsLimit: u32 = 200;
+	pub const BuybackPalletId: PalletId = PalletId(*b"poke/bbk");
+	pub const MaxPlans: u32 = 50;
+}
+
+impl pallet_buyback::Config for Runtime {
+	type Event = Event;
+	type BuybackOrigin = EnsureSigned<AccountId>;
+	type ParticipantOrigin = EnsureSigned<AccountId>;
+	type Currencies = Currencies;
+	type ObjectId = ObjectId;
+	type UniqueId = UniqueId;
+	type PlanId = PlanId;
+	type IterationsLimit = IterationsLimit;
+	type PalletId = BuybackPalletId;
+	type MaxPlans = MaxPlans;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -714,7 +758,7 @@ construct_runtime!(
 		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
 		VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
-		// Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
+		Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
 	}
 );
 

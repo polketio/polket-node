@@ -71,4 +71,7 @@ pub mod id {
 	pub const PRODUCER_ID: &[u8] = b"produceridkey";
 	pub const VFE_BRAND_ID: &[u8] = b"vfebrandidkey";
 	pub const ASSET_ID: &[u8] = b"assetidkey";
+	pub const BUYBACK_PLAN_ID: &[u8] = b"planidkey";
+	pub const ORDER_ID: &[u8] = b"orderidkey";
+	pub const OFFER_ID: &[u8] = b"offeridkey";
 }

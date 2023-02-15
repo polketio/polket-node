@@ -13,39 +13,36 @@ repository = 'https://github.com/polketio/polket-node/'
 targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
-num-integer = { default-features = false, version = "0.1.45"}
+num-integer = { default-features = false, version = "0.1.45" }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 codec = { default-features = false, features = ['derive'], package = 'parity-scale-codec', version = '3.0.0' }
-scale-info = { default-features = false, features = ['derive'], version = '2.1.2'}
+scale-info = { default-features = false, features = ['derive'], version = '2.1.2' }
 frame-benchmarking = { default-features = false, git = 'https://github.com/paritytech/substrate.git', optional = true, branch = "polkadot-v0.9.28", version = '4.0.0-dev' }
 frame-support = { default-features = false, git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '4.0.0-dev' }
 frame-system = { default-features = false, git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '4.0.0-dev' }
-sp-core = { default-features = false, git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '6.0.0'}
+sp-core = { default-features = false, git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '6.0.0' }
 sp-io = { default-features = false, git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '6.0.0' }
-sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '6.0.0'}
-
+sp-runtime = { default-features = false, git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '6.0.0' }
 sp-std = { default-features = false, git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '4.0.0-dev' }
-p256 = { default-features = false, version = "0.10.1", features = ["ecdsa"]}
 
 # local libraries
-pallet-support = { default-features = false, path='../support' }
-pallet-unique-id = { default-features = false, path='../unique-id' }
+pallet-support = { default-features = false, path = '../support' }
 
 [dev-dependencies]
 pallet-assets = { git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '4.0.0-dev' }
 pallet-balances = { git = 'https://github.com/paritytech/substrate.git', branch = "polkadot-v0.9.28", version = '4.0.0-dev' }
-hex-literal = '0.3.1'
-bitcoin_hashes = { default-features = false,  version = '0.10.0' }
-sha2 = "0.10.2"
+
+pallet-currencies = { path = '../currencies' }
+pallet-unique-id = { path = '../unique-id' }
 
 [features]
 default = ['std']
 runtime-benchmarks = [
     "frame-benchmarking",
-	"sp-runtime/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+    "sp-runtime/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
 ]
 std = [
     'hex/std',
@@ -60,6 +57,6 @@ std = [
     'sp-io/std',
     'sp-std/std',
     'num-integer/std',
-    'p256/std',
+    'pallet-support/std',
 ]
 try-runtime = ['frame-support/try-runtime']
