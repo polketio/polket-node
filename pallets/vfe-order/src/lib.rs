@@ -35,8 +35,15 @@ pub mod types;
 // mod mock;
 // mod tests;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 pub use pallet::*;
 pub use types::*;
+
 
 
 // #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
@@ -72,6 +79,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
+		///  The origin which who can create order.
+		type OrderOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
+
+
 		/// Multiple asset types
 		type Currencies: MultiAssets<Self::AccountId>
 			+ Transfer<Self::AccountId>
@@ -95,7 +106,7 @@ pub mod pallet {
 		type StringLimit: Get<u32>;
 
 		/// pallet-uniques instance
-		type UniquesInstance: NFTTransfer<Self::AccountId,CollectionId = Self::CollectionId,ItemId = Self::ItemId>;
+		type UniquesInstance: NFTTransfer<Self::AccountId,CollectionId = Self::CollectionId,ItemId = Self::ItemId> + Inspect<Self::AccountId>;
 
 		/// The pallet id
 		#[pallet::constant]
@@ -138,6 +149,8 @@ pub mod pallet {
 		TakeOwnOffer,
 		InvalidCommissionRate,
 		SenderTakeCommission,
+
+		NotBelongToyYou,
 	}
 
 	#[pallet::event]
@@ -253,15 +266,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			// ensure!(
-			// 	commission_rate <= T::ExtraConfig::get_max_commission_reward_rate(),
-			// 	Error::<T>::InvalidCommissionRate
-			// );
-
-			// ensure!(
-			// 	deposit >= BalanceOf::<T>::from(T::ExtraConfig::get_min_order_deposit()),
-			// 	Error::<T>::SubmitWithInvalidDeposit
-			// );
 
 
 			// <T as Config>::Currency::reserve(&who, deposit.saturated_into())?;
@@ -286,12 +290,17 @@ pub mod pallet {
 			// let item_vec = &items[..];
 
 			for  item in  items{
-				// VFE::transfer(pay_vfes, pay_currency, *class_id, *instance_id, *quantity)?;
+
+
+				let owner = T::UniquesInstance::owner(&item.collection_id,&item.item_id).ok_or(Error::<T>::NotBelongToyYou)?;
+
+				ensure!(
+					owner == who,
+					Error::<T>::NotBelongToyYou
+				);
+
 				T::UniquesInstance::transfer(&item.collection_id,&item.item_id,&order_account_id)?;
 			}
-
-			// ensure_one_royalty!(items);
-			// reserve_and_push_tokens::<_, _, _, T::VFE>(Some(&who), &items, &mut order.items)?;
 
 
 			
@@ -319,9 +328,10 @@ pub mod pallet {
 			// Simplify the logic, to make life easier.
 			ensure!(purchaser != order_owner, Error::<T>::TakeOwnOrder);
 
-			if let Some(c) = &commission_agent {
-				ensure!(&purchaser != c, Error::<T>::SenderTakeCommission);
-			}
+			// if let Some(c) = &commission_agent {
+			// 	ensure!(&purchaser != c, Error::<T>::SenderTakeCommission);
+			// }
+			
 
 			let order: OrderOf<T> = Self::delete_order(&order_owner, order_id)?;
 
@@ -359,7 +369,7 @@ pub mod pallet {
 				order_owner,
 				order_id,
 				None,
-				commission_data,
+				None,
 			));
 			Ok(().into())
 		}

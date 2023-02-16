@@ -307,6 +307,8 @@ parameter_types! {
 	pub const MetadataDepositPerByte: u64 = 1;
 }
 
+
+
 impl pallet_assets::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Event = Event;
@@ -759,7 +761,7 @@ construct_runtime!(
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
 		VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 		Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
-		VFEOrders: pallet_vfe_order::{Pallet, Call, Storage, Event<T>},
+		VFEOrder: pallet_vfe_order::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
