@@ -5,7 +5,12 @@
 use super::*;
 use sp_runtime::DispatchResult;
 
-impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
+impl<T: Config> Inspect<T::AccountId> for Pallet<T>
+where
+	T::CollectionId: From<T::ObjectId>,
+	T::ItemId: From<T::ObjectId>,
+	T::ObjectId: From<T::CollectionId>,
+{
 	type ItemId = T::ItemId;
 	type CollectionId = T::CollectionId;
 
@@ -33,8 +38,36 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 		pallet_uniques::Pallet::<T, T::UniquesInstance>::collection_attribute(collection, key)
 	}
 
-	fn can_transfer(class: &Self::CollectionId, instance: &Self::ItemId) -> bool {
-		pallet_uniques::Pallet::<T, T::UniquesInstance>::can_transfer(class, instance)
+	fn can_transfer(brand_id: &Self::CollectionId, item: &Self::ItemId) -> bool {
+		Self::check_vfe_can_transfer(brand_id, item).is_ok()
+	}
+}
+
+impl<T: Config> NFTTransfer<T::AccountId> for Pallet<T>
+where
+	T::CollectionId: From<T::ObjectId>,
+	T::ItemId: From<T::ObjectId>,
+	T::ObjectId: From<T::CollectionId>,
+{
+	fn transfer(
+		collection: &Self::CollectionId,
+		item: &Self::ItemId,
+		destination: &T::AccountId,
+	) -> DispatchResult {
+		let from = Self::owner(collection, item).ok_or(Error::<T>::VFENotExist)?;
+		Self::check_vfe_can_transfer(collection, item)?;
+		<pallet_uniques::Pallet<T, T::UniquesInstance> as NFTTransfer<T::AccountId>>::transfer(
+			collection,
+			item,
+			destination,
+		)?;
+		Self::deposit_event(Event::Transferred {
+			brand_id: collection.to_owned(),
+			item_id: item.to_owned(),
+			from,
+			to: destination.to_owned(),
+		});
+		Ok(())
 	}
 }
 
@@ -61,7 +94,12 @@ where
 	}
 }
 
-impl<T: Config> InspectEnumerable<T::AccountId> for Pallet<T> {
+impl<T: Config> InspectEnumerable<T::AccountId> for Pallet<T>
+where
+	T::CollectionId: From<T::ObjectId>,
+	T::ItemId: From<T::ObjectId>,
+	T::ObjectId: From<T::CollectionId>,
+{
 	/// Returns an iterator of the asset classes in existence.
 	///
 	/// NOTE: iterating this list invokes a storage read per item.

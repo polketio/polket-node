@@ -4149,6 +4149,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-buyback"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "num-integer",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-currencies",
+ "pallet-support",
+ "pallet-unique-id",
+ "parity-scale-codec 3.1.5",
+ "scale-info",
+ "serde_json",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-collective"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.28#34a0621761c4a333cb2074ff720f7acbfb92dbb8"
@@ -4613,6 +4636,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-vfe-order"
+version = "0.1.0"
+dependencies = [
+ "bitcoin_hashes",
+ "blake2-rfc",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-support-test",
+ "frame-system",
+ "hex",
+ "hex-literal",
+ "num-integer",
+ "p256",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-currencies",
+ "pallet-support",
+ "pallet-timestamp",
+ "pallet-unique-id",
+ "pallet-uniques",
+ "parity-scale-codec 3.1.5",
+ "rand_core 0.6.3",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "scale-info",
+ "serde",
+ "sha2 0.10.2",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-vfe-rpc"
 version = "0.1.0"
 dependencies = [
@@ -5025,6 +5082,7 @@ dependencies = [
  "pallet-assets",
  "pallet-babe",
  "pallet-balances",
+ "pallet-buyback",
  "pallet-collective",
  "pallet-currencies",
  "pallet-currencies-rpc-runtime-api",
@@ -5047,6 +5105,7 @@ dependencies = [
  "pallet-uniques",
  "pallet-utility",
  "pallet-vfe",
+ "pallet-vfe-order",
  "pallet-vfe-rpc-runtime-api",
  "parity-scale-codec 3.1.5",
  "polket-primitives",

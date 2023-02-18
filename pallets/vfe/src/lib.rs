@@ -23,7 +23,9 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungibles::{Inspect as MultiAssets, Mutate as MultiAssetsMutate, Transfer},
-		tokens::nonfungibles::{Create, Inspect, InspectEnumerable, Mutate},
+		tokens::nonfungibles::{
+			Create, Inspect, InspectEnumerable, Mutate, Transfer as NFTTransfer,
+		},
 		Randomness, UnixTime,
 	},
 	transactional, PalletId,
@@ -43,7 +45,7 @@ use pallet_support::uniqueid::UniqueIdGenerator;
 use pallet_uniques::WeightInfo;
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedSub, One,
+		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedSub, Hash, One,
 		Saturating, StaticLookup, Zero,
 	},
 	ModuleError, Permill, SaturatedConversion,
@@ -74,7 +76,6 @@ type VFEBrandApprovalOf<T> = VFEBrandApprove<AssetIdOf<T>, BalanceOf<T>>;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::traits::UnixTime;
 
 	use super::*;
 
@@ -99,7 +100,7 @@ pub mod pallet {
 		type ObjectId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
-		type UniqueId: UniqueIdGenerator<ObjectId = Self::ObjectId>;
+		type UniqueId: UniqueIdGenerator<ParentId = Self::Hash, ObjectId = Self::ObjectId>;
 
 		/// The pallet id
 		#[pallet::constant]
@@ -113,11 +114,11 @@ pub mod pallet {
 
 		/// The producer-id parent key
 		#[pallet::constant]
-		type ProducerId: Get<Self::ObjectId>;
+		type ProducerId: Get<Self::Hash>;
 
 		/// The vfe brand-id parent key
 		#[pallet::constant]
-		type VFEBrandId: Get<Self::ObjectId>;
+		type VFEBrandId: Get<Self::Hash>;
 
 		/// Fees for unbinding VFE
 		#[pallet::constant]
@@ -168,33 +169,33 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	#[pallet::getter(fn incentive_token)]
+	#[pallet::getter(fn get_incentive_token)]
 	/// Record the AssetId used to award incentive tokens to users.
 	pub type IncentiveToken<T> = StorageValue<_, AssetIdOf<T>, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn nonce)]
+	#[pallet::getter(fn get_nonce)]
 	/// Self-incrementing nonce to obtain non-repeating random seeds
 	pub type Nonce<T> = StorageValue<_, u8, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn last_energy_recovery)]
+	#[pallet::getter(fn get_last_energy_recovery)]
 	/// Record the block number of the latest recoverable energy updated in the network
 	pub type LastEnergyRecovery<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn last_daily_earned_reset)]
+	#[pallet::getter(fn get_last_daily_earned_reset)]
 	/// Record the block number of the daily earning limit updated of the network
 	pub type LastDailyEarnedReset<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn producers)]
+	#[pallet::getter(fn get_producers)]
 	/// Records the currently registered producer.
 	pub(crate) type Producers<T: Config> =
 		StorageMap<_, Twox64Concat, T::ObjectId, Producer<T::ObjectId, T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn vfe_brands)]
+	#[pallet::getter(fn get_vfe_brands)]
 	/// Record the currently created VFE brand.
 	pub(crate) type VFEBrands<T: Config> = StorageMap<
 		_,
@@ -205,7 +206,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn users)]
+	#[pallet::getter(fn get_users)]
 	/// Record the user's daily training status
 	pub(crate) type Users<T: Config> = StorageMap<
 		_,
@@ -216,7 +217,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn devices)]
+	#[pallet::getter(fn get_devices)]
 	/// Record device status
 	pub(crate) type Devices<T: Config> = StorageMap<
 		_,
@@ -227,7 +228,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn device_vfes)]
+	#[pallet::getter(fn get_vfe_details)]
 	/// Record the detailed attribute value of VFE item
 	pub(super) type VFEDetails<T: Config> = StorageDoubleMap<
 		_,
@@ -1027,21 +1028,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let from = ensure_signed(origin.clone())?;
 			let to = T::Lookup::lookup(dest.clone())?;
-
-			let vfe = VFEDetails::<T>::get(brand_id, item_id).ok_or(Error::<T>::VFENotExist)?;
-
-			ensure!(vfe.remaining_battery == 100, Error::<T>::VFENotFullyCharged);
-
-			ensure!(!vfe.is_upgrading, Error::<T>::VFEUpgrading);
-
-			pallet_uniques::Pallet::<T, T::UniquesInstance>::transfer(
-				origin,
-				brand_id.clone(),
-				item_id.clone(),
-				dest,
-			)?;
-			Self::deposit_event(Event::Transferred { brand_id, item_id, from, to });
-			Ok(())
+			let vfe_owner = Self::owner(&brand_id, &item_id).ok_or(Error::<T>::VFENotExist)?;
+			ensure!(vfe_owner == from, Error::<T>::OperationIsNotAllowed);
+			<Self as NFTTransfer<T::AccountId>>::transfer(&brand_id, &item_id, &to)
 		}
 	}
 
@@ -1069,14 +1058,6 @@ pub mod pallet {
 					.propagate(true)
 					.build()
 			};
-			// let valid_user_tx = |provide| {
-			// 	ValidTransaction::with_tag_prefix("VFEUser")
-			// 		.priority(UNSIGNED_TXS_PRIORITY)
-			// 		.and_provides([&provide])
-			// 		.longevity(TransactionLongevity::max_value())
-			// 		.propagate(true)
-			// 		.build()
-			// };
 
 			match call.to_owned() {
 				Call::bind_device { from, puk, signature, nonce, bind_item: _bind_item } => {
@@ -1094,21 +1075,6 @@ pub mod pallet {
 					valid_device_tx((device_pk, report_sig))
 				},
 
-				// Call::user_restore { who } => {
-				// 	let user = Users::<T>::get(&who).ok_or(InvalidTransaction::BadSigner)?;
-				// 	if user.energy == user.energy_total {
-				// 		// Enough energy does not need to be restored.
-				// 		return InvalidTransaction::Call.into()
-				// 	}
-				// 	let user_last_restore_block = user.last_restore_block;
-				// 	let last_energy_recovery = LastEnergyRecovery::<T>::get();
-				// 	if user_last_restore_block >= last_energy_recovery {
-				// 		// Recoverable time has not yet been reached.
-				// 		return InvalidTransaction::Future.into()
-				// 	}
-				// 	let now = frame_system::Pallet::<T>::block_number();
-				// 	valid_user_tx((who, now))
-				// },
 				_ => InvalidTransaction::Call.into(),
 			}
 		}
@@ -1522,8 +1488,8 @@ where
 
 				let vfe_brand_owner =
 					Self::collection_owner(&vfe_brand_id).ok_or(Error::<T>::VFEBrandNotFound)?;
-
-				let instance = T::UniqueId::generate_object_id(vfe_brand_id.into())?;
+				let parent_id = Self::into_parent_id(T::VFEBrandId::get(), vfe_brand_id.into());
+				let instance = T::UniqueId::generate_object_id(parent_id)?;
 				Self::do_mint(vfe_brand_id.clone(), instance.into(), who.clone())?;
 
 				// mint_cost handle transfer
@@ -1732,6 +1698,26 @@ where
 		} else {
 			Zero::zero()
 		}
+	}
+
+	pub fn check_vfe_can_transfer(brand_id: &T::CollectionId, item: &T::ItemId) -> DispatchResult {
+		// Only VFE is fully charged or not uprading or unbound can be transferred
+		let vfe = VFEDetails::<T>::get(brand_id, item).ok_or(Error::<T>::VFENotExist)?;
+		ensure!(vfe.remaining_battery >= 100, Error::<T>::VFENotFullyCharged);
+		ensure!(!vfe.is_upgrading, Error::<T>::VFEUpgrading);
+		ensure!(!vfe.device_key.is_none(), Error::<T>::VFEBond);
+		Ok(())
+	}
+
+	/// The parent ID of the VFE Brand Id.
+	pub fn into_parent_id(
+		parent_id: T::Hash,
+		child_id: T::ObjectId,
+	) -> <T as frame_system::Config>::Hash {
+		let encoded = (parent_id, child_id).encode();
+		let key: <T as frame_system::Config>::Hash =
+			<T as frame_system::Config>::Hashing::hash(encoded.as_ref());
+		key
 	}
 }
 

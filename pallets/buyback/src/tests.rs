@@ -2,72 +2,454 @@
 // Copyright (C) 2021-2022 Polket.
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use codec::Encode;
-use hex_literal::hex;
-use p256::{
-	ecdsa::{
-		signature::{DigestVerifier, Signature, Signer, Verifier},
-		Signature as OSignature, SigningKey, VerifyingKey,
-	},
-	elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
-	NistP256,
+use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
+
+use crate::{
+	mock::*, BuybackMode, BuybackPlans, Error, ParticipantInfo, ParticipantRegistrations, PlanInfo,
+	PlanStatus, TotalPlansCount,
 };
-use sha2::{Digest, Sha256, Sha512};
 
-#[test]
-fn calculate() {
-	let max32 = u32::MAX;
-	let max64 = u64::MAX;
-	let max128 = u128::MAX;
-	println!("max32 = {}", max32);
-	println!("max64 = {}", max64);
-	println!("max128 = {}", max128);
+fn create_test_plan(creator: AccountId, amount: u64, mode: BuybackMode, start: u64) {
+	assert_ok!(Buyback::create_plan(
+		Origin::signed(creator),
+		1,
+		0,
+		200,
+		amount,
+		100,
+		start,
+		10,
+		mode,
+	));
 }
 
 #[test]
-fn generate_secp256r1_pk() {
-	// Signing
-	let x = &hex!["c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721"];
-	let signing_key = SigningKey::from_bytes(x).unwrap(); // Serialize with `::to_bytes()`
-	let message = b"ECDSA proves knowledge of a secret number in the context of a single message";
-	// let sha_msg = Sha256::Hash::hash(&message.as_ref()).as_ref();
-	let signature = signing_key.sign(message);
-	println!("signature = {}", hex::encode(signature.as_bytes()));
-	//b1c4b565eb28a6753325dd81ba50ac4bc485934f819d6fdfc6d337a0a8f2dd68f37ba1e630ed5fe97b65b6f25dd02543742ccf69074f6a62e23673605f61ca97
-	println!("message = {}", hex::encode(message));
-	//45434453412070726f766573206b6e6f776c65646765206f66206120736563726574206e756d62657220696e2074686520636f6e74657874206f6620612073696e676c65206d657373616765
+fn create_plan_unit_test() {
+	new_test_ext().execute_with(|| {
+		let creator = ALICE;
 
-	let verifying_key = signing_key.verifying_key(); // Serialize with `::to_encoded_point()`
-	let publickey: PublicKey<NistP256> = verifying_key.into();
-	let encoded_point = publickey.to_encoded_point(true);
-	println!("pks = {}", hex::encode(encoded_point));
-	//0360fed4ba255a9d31c961eb74c6356d68c049b8923b61fa6ce669622e60f29fb6
-	assert!(verifying_key.verify(message, &signature).is_ok());
+		assert_noop!(
+			Buyback::create_plan(
+				Origin::signed(creator.clone()),
+				1,
+				2,
+				200,
+				0,
+				100,
+				5,
+				10,
+				BuybackMode::Burn
+			),
+			Error::<Test>::ValueInvalid
+		);
+
+		assert_noop!(
+			Buyback::create_plan(
+				Origin::signed(creator.clone()),
+				1,
+				2,
+				200,
+				10000,
+				100,
+				5,
+				10,
+				BuybackMode::Burn
+			),
+			Error::<Test>::InsufficientBalance
+		);
+
+		assert_noop!(
+			Buyback::create_plan(
+				Origin::signed(creator.clone()),
+				2,
+				0,
+				200,
+				10000,
+				100,
+				5,
+				10,
+				BuybackMode::Burn
+			),
+			Error::<Test>::AssetUnavailable
+		);
+
+		assert_noop!(
+			Buyback::create_plan(
+				Origin::signed(creator.clone()),
+				1,
+				0,
+				200,
+				10000,
+				100,
+				1,
+				10,
+				BuybackMode::Burn
+			),
+			Error::<Test>::PlanStartGreaterThanCurrent
+		);
+
+		assert_noop!(
+			Buyback::create_plan(
+				Origin::signed(creator.clone()),
+				1,
+				0,
+				200,
+				10000000,
+				100,
+				5,
+				10,
+				BuybackMode::Burn
+			),
+			Error::<Test>::InsufficientBalance
+		);
+
+		create_test_plan(creator.clone(), 10000, BuybackMode::Burn, 5);
+
+		System::assert_has_event(Event::Buyback(crate::Event::PlanCreated {
+			plan_id: 1,
+			plan_info: PlanInfo {
+				buy_asset_id: 0,
+				sell_asset_id: 1,
+				creator: ALICE,
+				min_sell: 200,
+				seller_amount: 0,
+				seller_limit: 100,
+				total_buy: 10000,
+				total_sell: 0,
+				start: 5,
+				period: 10,
+				status: PlanStatus::Upcoming,
+				mode: BuybackMode::Burn,
+			},
+		}));
+
+		let creator_balance = Currencies::balance(0, &creator);
+		// println!("creator_balance = {}", creator_balance);
+		assert_eq!(creator_balance, 1000000 - 10000);
+		let plan_account_balance = Currencies::balance(0, &Buyback::into_account_id(1));
+		// println!("plan_account_balance = {}", plan_account_balance);
+		assert_eq!(plan_account_balance, 10000);
+		assert_eq!(TotalPlansCount::<Test>::get(), 1);
+
+		for _ in 0..19 {
+			create_test_plan(creator.clone(), 10000, BuybackMode::Burn, 5);
+		}
+
+		assert_eq!(TotalPlansCount::<Test>::get(), 20);
+
+		assert_noop!(
+			Buyback::create_plan(
+				Origin::signed(creator.clone()),
+				1,
+				0,
+				200,
+				10000,
+				100,
+				5,
+				10,
+				BuybackMode::Burn
+			),
+			Error::<Test>::TotalPlansReachedMax
+		);
+	});
 }
 
 #[test]
-fn verify_secp256r1_pk() {
-	let x = &hex!["03be679ee49518a6b3471403538dd7b0514b8357fc52c6e8cf44c560685028df11"];
-	// let signing_key = SigningKey::from_bytes(x).unwrap();
-	let pubkey = VerifyingKey::from_sec1_bytes(x).unwrap();
+fn cancel_plan_unit_test() {
+	new_test_ext().execute_with(|| {
+		let creator = ALICE;
 
-	let msg = &hex!["010101010101010101010101010101010101010101010101"];
-	// let msg = Sha256::Hash::hash(&msg.as_ref());
+		create_test_plan(creator.clone(), 10000, BuybackMode::Burn, 5);
 
-	// create a Sha256 object
-	let sha_msg = Sha256::new_with_prefix(msg);
+		assert_noop!(
+			Buyback::cancel_plan(Origin::signed(creator.clone()), 2),
+			Error::<Test>::BuybackPlanNotExisted
+		);
 
-	// println!("message = {}", hex::encode(message));
+		assert_noop!(
+			Buyback::cancel_plan(Origin::signed(BOB), 1),
+			Error::<Test>::OperationIsNotAllowed
+		);
 
-	let nonce: u32 = 1111;
-	println!("nonce big end= {}", hex::encode(nonce.to_be_bytes()));
-	println!("nonce little end {}", hex::encode(nonce.to_le_bytes()));
-	println!("nonce encode = {}", hex::encode(nonce.encode()));
+		assert_ok!(Buyback::cancel_plan(Origin::signed(creator.clone()), 1));
 
-	// let msg = &hex!["5b8b4d29020ea5b1bc427c40a0cab2bf944be057ec482110f1d12b68008cd286"];
-	let sig = Signature::from_bytes(&hex!["02e404621bc572723a498c97592360d071cf6f434a53e856ce5daff5c426c9d96c2183a0f5642cba77da726914b5909313d00973d6b0f60e157393564063b0dd"]).unwrap();
+		System::assert_has_event(Event::Buyback(crate::Event::PlanCanceled { plan_id: 1 }));
 
-	// let verifying_key = signing_key.verifying_key();
-	assert!(pubkey.verify(msg.as_ref(), &sig).is_ok());
-	assert!(pubkey.verify_digest(sha_msg, &sig).is_ok());
+		// plan is not existed
+		assert!(!BuybackPlans::<Test>::contains_key(1));
+		assert_eq!(TotalPlansCount::<Test>::get(), 0);
+
+		// assets return creator
+		let creator_balance = Currencies::balance(0, &creator);
+		assert_eq!(creator_balance, 1000000);
+		let plan_account_balance = Currencies::balance(0, &Buyback::into_account_id(1));
+		assert_eq!(plan_account_balance, 0);
+
+		// create a new plan and start it.
+		create_test_plan(creator.clone(), 10000, BuybackMode::Burn, 5);
+		run_to_block(6);
+
+		let plan = BuybackPlans::<Test>::get(2).expect("plan is not existed");
+		assert_eq!(plan.status, PlanStatus::InProgress);
+		assert_noop!(
+			Buyback::cancel_plan(Origin::signed(creator.clone()), 2),
+			Error::<Test>::OperationIsNotAllowed
+		);
+		assert_eq!(TotalPlansCount::<Test>::get(), 1);
+	});
+}
+
+#[test]
+fn seller_register_unit_test() {
+	new_test_ext().execute_with(|| {
+		let creator = ALICE;
+		let seller = BOB;
+		create_test_plan(creator.clone(), 10000, BuybackMode::Burn, 5);
+
+		assert_noop!(
+			Buyback::seller_register(Origin::signed(seller.clone()), 2, 400),
+			Error::<Test>::BuybackPlanNotExisted
+		);
+
+		assert_noop!(
+			Buyback::seller_register(Origin::signed(seller.clone()), 1, 400),
+			Error::<Test>::OperationIsNotAllowed
+		);
+
+		run_to_block(6);
+
+		assert_noop!(
+			Buyback::seller_register(Origin::signed(seller.clone()), 1, 20),
+			Error::<Test>::LockedAmountLessThanMin
+		);
+
+		System::assert_has_event(Event::Buyback(crate::Event::PlanStarted { plan_id: 1 }));
+
+		assert_noop!(
+			Buyback::seller_register(Origin::signed(seller.clone()), 1, 900000000),
+			pallet_assets::Error::<Test>::BalanceLow
+		);
+
+		assert_ok!(Buyback::seller_register(Origin::signed(seller.clone()), 1, 400));
+		System::assert_has_event(Event::Buyback(crate::Event::SellerRegistered {
+			plan_id: 1,
+			who: seller.clone(),
+			locked: 400,
+		}));
+
+		// check asset balance
+		let seller_balance = Currencies::balance(1, &seller);
+		assert_eq!(seller_balance, 1000000 - 400);
+		let plan_account_balance = Currencies::balance(1, &Buyback::into_account_id(1));
+		assert_eq!(plan_account_balance, 400);
+		let participant = ParticipantRegistrations::<Test>::get(1, &seller);
+		assert_eq!(participant.locked, 400);
+
+		assert_ok!(Buyback::seller_register(Origin::signed(seller.clone()), 1, 400));
+
+		// check asset balance
+		let seller_balance = Currencies::balance(1, &seller);
+		assert_eq!(seller_balance, 1000000 - 800);
+		let plan_account_balance = Currencies::balance(1, &Buyback::into_account_id(1));
+		assert_eq!(plan_account_balance, 800);
+		let participant = ParticipantRegistrations::<Test>::get(1, &seller);
+		assert_eq!(participant.locked, 800);
+	});
+}
+
+#[test]
+fn payback_and_burn_unit_test() {
+	new_test_ext().execute_with(|| {
+		let creator = ALICE;
+		create_test_plan(creator.clone(), 10000, BuybackMode::Burn, 5);
+
+		run_to_block(6);
+
+		System::assert_has_event(Event::Buyback(crate::Event::PlanStarted { plan_id: 1 }));
+
+		let bob_locked = 400u64;
+		let charlie_locked = 500u64;
+		let dave_locked = 600u64;
+
+		assert_ok!(Buyback::seller_register(Origin::signed(BOB), 1, bob_locked));
+		assert_ok!(Buyback::seller_register(Origin::signed(CHARLIE), 1, charlie_locked));
+		assert_ok!(Buyback::seller_register(Origin::signed(DAVE), 1, dave_locked));
+
+		assert_noop!(
+			Buyback::withdraw(Origin::signed(BOB), BOB, 2),
+			Error::<Test>::BuybackPlanNotExisted
+		);
+		assert_noop!(
+			Buyback::withdraw(Origin::signed(BOB), BOB, 1),
+			Error::<Test>::OperationIsNotAllowed
+		);
+
+		run_to_block(16);
+
+		System::assert_has_event(Event::Buyback(crate::Event::PlanCompleted { plan_id: 1 }));
+		System::assert_has_event(Event::Buyback(crate::Event::AllPaybacked { plan_id: 1 }));
+
+		// system handle payback, users no longer need to withdraw
+		assert_noop!(
+			Buyback::withdraw(Origin::signed(BOB), BOB, 1),
+			Error::<Test>::OperationIsNotAllowed
+		);
+		assert_noop!(
+			Buyback::withdraw(Origin::signed(CHARLIE), CHARLIE, 1),
+			Error::<Test>::OperationIsNotAllowed
+		);
+		assert_noop!(
+			Buyback::withdraw(Origin::signed(CHARLIE), CHARLIE, 1),
+			Error::<Test>::OperationIsNotAllowed
+		);
+
+		// assert_ok!(Buyback::withdraw(Origin::signed(BOB), BOB, 1));
+		// assert_ok!(Buyback::withdraw(Origin::signed(CHARLIE), CHARLIE, 1));
+		// assert_ok!(Buyback::withdraw(Origin::signed(CHARLIE), CHARLIE, 1));
+
+		let bob_expect_rewards = 2666u64;
+		let charlie_expect_rewards = 3333u64;
+		let dave_expect_rewards = 4000u64;
+
+		System::assert_has_event(Event::Buyback(crate::Event::Withdrew {
+			who: BOB,
+			plan_id: 1,
+			rewards: bob_expect_rewards,
+		}));
+		System::assert_has_event(Event::Buyback(crate::Event::Withdrew {
+			who: CHARLIE,
+			plan_id: 1,
+			rewards: charlie_expect_rewards,
+		}));
+		System::assert_has_event(Event::Buyback(crate::Event::Withdrew {
+			who: DAVE,
+			plan_id: 1,
+			rewards: dave_expect_rewards,
+		}));
+
+		let bob_rewards = Currencies::balance(0, &BOB);
+		let charlie_rewards = Currencies::balance(0, &CHARLIE);
+		let dave_rewards = Currencies::balance(0, &DAVE);
+		let plan_account_rewards = Currencies::balance(0, &Buyback::into_account_id(1));
+		let plan_account_locked = Currencies::balance(1, &Buyback::into_account_id(1));
+
+		assert_eq!(bob_rewards, bob_expect_rewards);
+		assert_eq!(charlie_rewards, charlie_expect_rewards);
+		assert_eq!(dave_rewards, dave_expect_rewards);
+		assert_eq!(plan_account_rewards, 0);
+		assert_eq!(plan_account_locked, 0); //Burned
+
+		assert_eq!(
+			ParticipantRegistrations::<Test>::get(1, BOB),
+			ParticipantInfo { locked: bob_locked, rewards: bob_expect_rewards, withdrew: true }
+		);
+		assert_eq!(
+			ParticipantRegistrations::<Test>::get(1, CHARLIE),
+			ParticipantInfo {
+				locked: charlie_locked,
+				rewards: charlie_expect_rewards,
+				withdrew: true
+			}
+		);
+		assert_eq!(
+			ParticipantRegistrations::<Test>::get(1, DAVE),
+			ParticipantInfo { locked: dave_locked, rewards: dave_expect_rewards, withdrew: true }
+		);
+
+		System::assert_has_event(Event::Assets(pallet_assets::Event::Burned {
+			asset_id: 1,
+			owner: Buyback::into_account_id(1),
+			balance: bob_locked + charlie_locked + dave_locked,
+		}));
+	});
+}
+
+#[test]
+fn payback_and_transfer_unit_test() {
+	new_test_ext().execute_with(|| {
+		let creator = ALICE;
+		create_test_plan(creator.clone(), 10000, BuybackMode::Transfer, 5);
+
+		run_to_block(6);
+
+		let bob_locked = 400u64;
+		let charlie_locked = 500u64;
+		let dave_locked = 600u64;
+
+		assert_ok!(Buyback::seller_register(Origin::signed(BOB), 1, bob_locked));
+		assert_ok!(Buyback::seller_register(Origin::signed(CHARLIE), 1, charlie_locked));
+		assert_ok!(Buyback::seller_register(Origin::signed(DAVE), 1, dave_locked));
+
+		run_to_block(16);
+
+		let creator_returned = Currencies::balance(1, &creator);
+		let plan_account_rewards = Currencies::balance(0, &Buyback::into_account_id(1));
+		let plan_account_locked = Currencies::balance(1, &Buyback::into_account_id(1));
+
+		assert_eq!(creator_returned, bob_locked + charlie_locked + dave_locked);
+		assert_eq!(plan_account_rewards, 0);
+		assert_eq!(plan_account_locked, 0); //transferred
+
+		System::assert_has_event(Event::Assets(pallet_assets::Event::Transferred {
+			asset_id: 1,
+			from: Buyback::into_account_id(1),
+			to: creator,
+			amount: bob_locked + charlie_locked + dave_locked,
+		}));
+	});
+}
+
+#[test]
+fn payback_no_participant_should_work() {
+	new_test_ext().execute_with(|| {
+		let creator = ALICE;
+		create_test_plan(creator.clone(), 10000, BuybackMode::Burn, 5);
+		run_to_block(16);
+
+		// let plan = BuybackPlans::<Test>::get(1);
+		// println!("plan = {:?}", plan);
+		System::assert_has_event(Event::Buyback(crate::Event::PlanStarted { plan_id: 1 }));
+		System::assert_has_event(Event::Buyback(crate::Event::PlanCompleted { plan_id: 1 }));
+		System::assert_has_event(Event::Buyback(crate::Event::AllPaybacked { plan_id: 1 }));
+	});
+}
+
+#[test]
+fn buyback_plan_clear_unit_test() {
+	new_test_ext().execute_with(|| {
+		let creator = ALICE;
+		// create 19 plans
+		let start = 5u64;
+		for i in 0u64..19 {
+			create_test_plan(creator.clone(), 10000, BuybackMode::Burn, start + i);
+		}
+
+		run_to_block(6);
+
+		let bob_locked = 400u64;
+		let charlie_locked = 500u64;
+		let dave_locked = 600u64;
+
+		assert_ok!(Buyback::seller_register(Origin::signed(BOB), 1, bob_locked));
+		assert_ok!(Buyback::seller_register(Origin::signed(CHARLIE), 1, charlie_locked));
+		assert_ok!(Buyback::seller_register(Origin::signed(DAVE), 1, dave_locked));
+
+		run_to_block(22);
+
+		// create 20th plan reach max
+		create_test_plan(creator.clone(), 10000, BuybackMode::Burn, start + 20);
+		assert_eq!(TotalPlansCount::<Test>::get(), 20);
+
+		run_to_block(23);
+		// 7 plans cleared
+		for i in 1u32..=7 {
+			System::assert_has_event(Event::Buyback(crate::Event::PlanStarted { plan_id: i }));
+			System::assert_has_event(Event::Buyback(crate::Event::PlanCompleted { plan_id: i }));
+			System::assert_has_event(Event::Buyback(crate::Event::AllPaybacked { plan_id: i }));
+			System::assert_has_event(Event::Buyback(crate::Event::PlanCleared { plan_id: i }));
+		}
+
+		assert!(!BuybackPlans::<Test>::contains_key(1));
+		assert_eq!(ParticipantRegistrations::<Test>::get(1, BOB), ParticipantInfo::default());
+	});
 }

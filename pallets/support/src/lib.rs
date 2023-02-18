@@ -10,3 +10,4 @@ pub mod coupons;
 pub mod nonfungibles;
 pub mod fungibles;
 pub mod projects;
+pub mod trade;

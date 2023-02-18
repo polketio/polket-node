@@ -20,7 +20,7 @@ use pallet_grandpa::{
 // use pallet_support::identity::IdentityRoleProducer;
 pub use runtime_common::{origin::EnsureIdentity, CurrencyToVote, VFEDetail, VFEInstance};
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, Hasher, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
@@ -73,7 +73,11 @@ pub use polket_primitives::*;
 pub mod constants;
 
 use crate::constants::currency::MILLICENTS;
-use constants::{currency::DOLLARS, time::*};
+use constants::{
+	currency::DOLLARS,
+	id::{ASSET_ID, BUYBACK_PLAN_ID, PRODUCER_ID, VFE_BRAND_ID,ORDER_ID,OFFER_ID},
+	time::*,
+};
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -303,6 +307,8 @@ parameter_types! {
 	pub const MetadataDepositPerByte: u64 = 1;
 }
 
+
+
 impl pallet_assets::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Event = Event;
@@ -498,6 +504,7 @@ parameter_types! {
 }
 
 impl pallet_unique_id::Config for Runtime {
+	type ParentId = Self::Hash;
 	type ObjectId = ObjectId;
 	type StartId = StartId;
 	type MaxId = MaxId;
@@ -512,7 +519,7 @@ impl pallet_utility::Config for Runtime {
 
 parameter_types! {
 	pub const NativeToken: u64 = 0;
-	pub const AssetId: ObjectId = constants::id::ASSET_ID;
+	pub AssetId: Hash =  BlakeTwo256::hash(ASSET_ID);
 }
 
 impl pallet_currencies::Config for Runtime {
@@ -641,13 +648,18 @@ impl pallet_multisig::Config for Runtime {
 // }
 
 parameter_types! {
+	pub ProducerId: Hash = BlakeTwo256::hash(PRODUCER_ID);
+	pub VFEBrandId: Hash = BlakeTwo256::hash(VFE_BRAND_ID);
+
+	pub OrderId: Hash = BlakeTwo256::hash(ORDER_ID);
+	pub OfferId: Hash = BlakeTwo256::hash(OFFER_ID);
+
 	pub const VFEPalletId: PalletId = PalletId(*b"poke/vfe");
-	pub const ProducerId: ObjectId = constants::id::PRODUCER_ID;
-	pub const VFEBrandId: ObjectId = constants::id::VFE_BRAND_ID;
+	pub const VFEOrderPalletId: PalletId = PalletId(*b"poke/ord");
 	pub const IncentiveToken: ObjectId = 1;
 	pub const UnbindFee: Balance = MILLICENTS;
 	pub const CostUnit: Balance = DOLLARS / 10;
-	pub const EnergyRecoveryDuration: BlockNumber = HOURS * 4;
+	pub const EnergyRecoveryDuration: BlockNumber = HOURS * 2;
 	pub const DailyEarnedResetDuration: BlockNumber = HOURS * 24;
 	pub const LevelUpCostFactor: Balance = 7;
 	pub const InitEnergy: u16 = 8;
@@ -682,6 +694,42 @@ impl pallet_vfe::Config for Runtime {
 	type UserVFEMintedProfitRatio = UserVFEMintedProfitRatio;
 }
 
+impl pallet_vfe_order::Config for Runtime {
+	type Event = Event;
+	type OrderOrigin = EnsureSigned<AccountId>;
+	type Currencies = Currencies;
+	type CollectionId = ObjectId;
+	type ItemId = ObjectId;
+	type ObjectId = ObjectId;
+	type StringLimit = StringLimit;
+	type UniqueId = UniqueId;
+	type UniquesInstance = VFE;
+	type PalletId = VFEOrderPalletId;
+	type OrderId = OrderId;
+	type OfferId = OfferId;
+
+}
+
+parameter_types! {
+	pub PlanId: Hash = BlakeTwo256::hash(BUYBACK_PLAN_ID);
+	pub const IterationsLimit: u32 = 200;
+	pub const BuybackPalletId: PalletId = PalletId(*b"poke/bbk");
+	pub const MaxPlans: u32 = 50;
+}
+
+impl pallet_buyback::Config for Runtime {
+	type Event = Event;
+	type BuybackOrigin = EnsureSigned<AccountId>;
+	type ParticipantOrigin = EnsureSigned<AccountId>;
+	type Currencies = Currencies;
+	type ObjectId = ObjectId;
+	type UniqueId = UniqueId;
+	type PlanId = PlanId;
+	type IterationsLimit = IterationsLimit;
+	type PalletId = BuybackPalletId;
+	type MaxPlans = MaxPlans;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -713,7 +761,8 @@ construct_runtime!(
 		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
 		VFE: pallet_vfe::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
-		// Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
+		Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
+		VFEOrder: pallet_vfe_order::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -986,7 +1035,7 @@ impl_runtime_apis! {
 			VFE::get_charging_costs(brand_id, item, charge_num)
 		}
 
-	 	fn get_level_up_costs(who: AccountId, brand_id: ObjectId, item: ObjectId) -> Balance {
+		 fn get_level_up_costs(who: AccountId, brand_id: ObjectId, item: ObjectId) -> Balance {
 			VFE::get_level_up_costs(who, brand_id, item)
 		}
 	}

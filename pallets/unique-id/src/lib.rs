@@ -22,6 +22,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// The Parent ID type
+		type ParentId: Parameter + Member + Default + Copy + MaxEncodedLen;
+
 		/// The Object ID type
 		type ObjectId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 
@@ -42,7 +45,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn next_object_id)]
 	pub type NextObjectId<T: Config> =
-		StorageMap<_, Twox64Concat, T::ObjectId, T::ObjectId, ValueQuery>;
+		StorageMap<_, Twox64Concat, T::ParentId, T::ObjectId, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -58,11 +61,12 @@ pub mod pallet {
 }
 
 impl<T: Config> UniqueIdGenerator for Pallet<T> {
+	type ParentId = T::ParentId;
 	type ObjectId = T::ObjectId;
 
 	/// generate new object id: Return the current ID, and increment the current ID
 	fn generate_object_id(
-		parent_id: Self::ObjectId,
+		parent_id: Self::ParentId,
 	) -> Result<Self::ObjectId, sp_runtime::DispatchError> {
 		let asset_id =
 			NextObjectId::<T>::try_mutate(parent_id, |id| -> Result<T::ObjectId, DispatchError> {

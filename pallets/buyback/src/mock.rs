@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use super::*;
-use crate as pallet_currencies;
+use crate as pallet_buyback;
 use frame_support::parameter_types;
 use frame_system as system;
 use pallet_assets::FrozenBalance;
-use sp_core::{H256, Hasher};
+use sp_core::{Hasher, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -17,6 +17,9 @@ use sp_runtime::{
 pub type AccountId = AccountId32;
 pub const ALICE: AccountId = AccountId::new([1u8; 32]);
 pub const BOB: AccountId = AccountId::new([2u8; 32]);
+pub const CHARLIE: AccountId = AccountId::new([3u8; 32]);
+pub const DAVE: AccountId = AccountId::new([4u8; 32]);
+pub const EVE: AccountId = AccountId::new([5u8; 32]);
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -33,6 +36,7 @@ frame_support::construct_runtime!(
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>},
 		UniqueId: pallet_unique_id::{Pallet, Storage},
 		Currencies: pallet_currencies::{Pallet, Call, Storage, Event<T>},
+		Buyback: pallet_buyback::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -137,17 +141,16 @@ impl FrozenBalance<u32, AccountId, u64> for TestFreezer {
 impl pallet_unique_id::Config for Test {
 	type ParentId = Self::Hash;
 	type ObjectId = u32;
-	type StartId = ConstU32<2u32>;
+	type StartId = ConstU32<1u32>;
 	type MaxId = ConstU32<100u32>;
 }
 
 parameter_types! {
 	pub const NativeToken: u32 = 0;
-	// pub const AssetId: u32 = u32::MAX - 1;
 	pub AssetId: H256 = BlakeTwo256::hash(b"assetidkey");
 }
 
-impl Config for Test {
+impl pallet_currencies::Config for Test {
 	type Event = Event;
 	type CreateOrigin = EnsureSigned<Self::AccountId>;
 	type NativeToken = NativeToken;
@@ -157,10 +160,30 @@ impl Config for Test {
 	type AssetId = AssetId;
 }
 
+parameter_types! {
+	pub PlanId: H256 = BlakeTwo256::hash(b"planidkey");
+	pub const IterationsLimit: u32 = 5;
+	pub const BuybackPalletId: PalletId = PalletId(*b"poc/bybk");
+	pub const MaxPlans: u32 = 20;
+}
+
+impl Config for Test {
+	type Event = Event;
+	type BuybackOrigin = EnsureSigned<Self::AccountId>;
+	type ParticipantOrigin = EnsureSigned<Self::AccountId>;
+	type Currencies = Currencies;
+	type ObjectId = u32;
+	type UniqueId = UniqueId;
+	type PlanId = PlanId;
+	type IterationsLimit = IterationsLimit;
+	type PalletId = BuybackPalletId;
+	type MaxPlans = MaxPlans;
+}
+
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
-	pallet_balances::GenesisConfig::<Test> { balances: vec![(ALICE, 10000000000)] }
+	pallet_balances::GenesisConfig::<Test> { balances: vec![(ALICE, 1000000)] }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
@@ -173,9 +196,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		metadata: vec![
 			// id, name, symbol, decimals
 			(0, "Polket Native Token".into(), "PNT".into(), 12),
-			(1, "To Earn Fun".into(), "FUN".into(), 8),
+			(1, "To Earn Fun".into(), "FUN".into(), 12),
 		],
-		accounts: vec![(1, BOB, 1000)],
+		accounts: vec![
+			(1, BOB, 1000000),
+			(1, CHARLIE, 1000000),
+			(1, DAVE, 1000000),
+			(1, EVE, 1000000),
+		],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -183,4 +211,16 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+pub(crate) fn run_to_block(n: u64) {
+	while System::block_number() < n {
+		if System::block_number() > 1 {
+			Buyback::on_finalize(System::block_number());
+			System::on_finalize(System::block_number());
+		}
+		System::set_block_number(System::block_number() + 1);
+		System::on_initialize(System::block_number());
+		Buyback::on_initialize(System::block_number());
+	}
 }

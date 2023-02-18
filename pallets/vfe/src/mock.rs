@@ -14,7 +14,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	AccountId32, Permill,
 };
-use system::{RawOrigin, EnsureRoot};
+use system::{EnsureRoot, RawOrigin};
 
 pub type AccountId = AccountId32;
 
@@ -78,14 +78,12 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-
 impl pallet_timestamp::Config for Test {
 	type Moment = u64;
 	type OnTimestampSet = ();
 	type MinimumPeriod = ConstU64<5>;
 	type WeightInfo = ();
 }
-
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 0;
@@ -210,6 +208,7 @@ impl pallet_uniques::Config<Instance> for Test {
 }
 
 impl pallet_unique_id::Config for Test {
+	type ParentId = Self::Hash;
 	type ObjectId = u32;
 	type StartId = ConstU32<1u32>;
 	type MaxId = ConstU32<100u32>;
@@ -217,7 +216,7 @@ impl pallet_unique_id::Config for Test {
 
 parameter_types! {
 	pub const NativeToken: u32 = 0;
-	pub const AssetId: u32 = u32::MAX - 1;
+	pub AssetId: H256 = <BlakeTwo256 as sp_runtime::traits::Hash>::hash(b"assetidkey");
 }
 
 impl pallet_currencies::Config for Test {
@@ -232,8 +231,8 @@ impl pallet_currencies::Config for Test {
 
 parameter_types! {
 	pub const VFEPalletId: PalletId = PalletId(*b"poc/acas");
-	pub const ProducerId: u32 = u32::MAX - 2;
-	pub const VFEBrandId: u32 = u32::MAX - 3;
+	pub ProducerId: H256 = <BlakeTwo256 as sp_runtime::traits::Hash>::hash(b"produceridkey");
+	pub VFEBrandId: H256 = <BlakeTwo256 as sp_runtime::traits::Hash>::hash(b"vfebrandidkey");
 	pub const IncentiveToken: u32 = 0;
 	pub const UnbindFee:u32 = 1;
 	pub const CostUnit: u64 = 100000;
