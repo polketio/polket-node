@@ -696,6 +696,7 @@ impl pallet_vfe::Config for Runtime {
 
 impl pallet_vfe_order::Config for Runtime {
 	type Event = Event;
+	type OrderOrigin = EnsureSigned<AccountId>;
 	type Currencies = Currencies;
 	type CollectionId = ObjectId;
 	type ItemId = ObjectId;

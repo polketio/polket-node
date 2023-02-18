@@ -157,28 +157,28 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub (crate) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// CreatedOrder \[who, order_id\]
-		CreatedOrder(T::AccountId, T::ObjectId),
+		CreatedOrder{who: T::AccountId, order_id: T::ObjectId},
 		/// RemovedOrder \[who, order_id\]
-		RemovedOrder(T::AccountId, T::ObjectId),
-		RemovedOffer(T::AccountId, T::ObjectId),
+		RemovedOrder{who:T::AccountId, order_id:T::ObjectId},
+		RemovedOffer{who:T::AccountId,offer_id: T::ObjectId},
 		/// TakenOrder \[purchaser, order_owner, order_id\]
-		TakenOrder(
-			T::AccountId,
-			T::AccountId,
-			T::ObjectId,
-			Option<(bool, T::AccountId, PerU16)>,
-			Option<Vec<u8>>,
-		),
-		/// TakenOrder \[token_owner, offer_owner, order_id\]
-		TakenOffer(
-			T::AccountId,
-			T::AccountId,
-			T::ObjectId,
-			Option<(bool, T::AccountId, PerU16)>,
-			Option<Vec<u8>>,
-		),
-		/// CreatedOffer \[who, order_id\]
-		CreatedOffer(T::AccountId, T::ObjectId),
+		TakenOrder{purchaser:T::AccountId,
+			order_owner:T::AccountId,
+			order_id:T::ObjectId,
+			commission_agent:Option<(bool, T::AccountId, PerU16)>,
+			commission_data:Option<Vec<u8>>
+		},
+
+		/// TakenOffer \[token_owner, offer_owner, offer_id\]
+		TakenOffer{
+			purchaser:T::AccountId,
+			order_owner:T::AccountId,
+			offer_id:T::ObjectId,
+			commission_agent:Option<(bool, T::AccountId, PerU16)>,
+			commission_data:Option<Vec<u8>>
+		},
+		/// CreatedOffer \[who, offer_id\]
+		CreatedOffer{who:T::AccountId, offer_id:T::ObjectId},
 	}
 
 	#[pallet::pallet]
@@ -305,7 +305,7 @@ pub mod pallet {
 
 			
 			Orders::<T>::insert(&who, order_id, order);
-			Self::deposit_event(Event::CreatedOrder(who, order_id));
+			Self::deposit_event(Event::CreatedOrder{who, order_id});
 			Ok(().into())
 		}
 
@@ -364,13 +364,13 @@ pub mod pallet {
 				&None,
 			)?;
 
-			Self::deposit_event(Event::TakenOrder(
+			Self::deposit_event(Event::TakenOrder{
 				purchaser,
 				order_owner,
 				order_id,
-				None,
-				None,
-			));
+				commission_agent:None,
+				commission_data:None,
+		});
 			Ok(().into())
 		}
 
@@ -393,7 +393,7 @@ pub mod pallet {
 				// VFE::transfer(pay_vfes, pay_currency, *class_id, *instance_id, *quantity)?;
 				T::UniquesInstance::transfer(&item.collection_id,&item.item_id,&who)?;
 			}
-			Self::deposit_event(Event::RemovedOrder(who, order_id));
+			Self::deposit_event(Event::RemovedOrder{who, order_id});
 			Ok(().into())
 		}
 
@@ -408,7 +408,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			Self::delete_offer(&who, offer_id)?;
-			Self::deposit_event(Event::RemovedOffer(who, offer_id));
+			Self::deposit_event(Event::RemovedOffer{who, offer_id});
 			Ok(().into())
 		}
 
@@ -461,7 +461,7 @@ pub mod pallet {
 
 			
 			Offers::<T>::insert(&purchaser, offer_id, offer);
-			Self::deposit_event(Event::CreatedOffer(purchaser, offer_id));
+			Self::deposit_event(Event::CreatedOffer{who:purchaser, offer_id});
 			Ok(().into())
 		}
 
