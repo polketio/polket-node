@@ -69,7 +69,7 @@ pub type BlockNumberOf<T> = <T as frame_system::Config>::BlockNumber;
 
 pub type OrderOf<T> = Order<AssetIdOf<T>,BalanceOf<T>, BlockNumberOf<T>, BoundedVec<OrderItem<CollectionIdOf<T>, ItemIdOf<T>>, <T as Config>::StringLimit>>;
 
-pub type OfferOf<T> = Offer<AssetIdOf<T>,BalanceOf<T>, BlockNumberOf<T>, BoundedVec<OrderItem<CollectionIdOf<T>, ItemIdOf<T>>, <T as Config>::StringLimit>>;
+pub type OfferOf<T> = Offer<AssetIdOf<T>,BalanceOf<T>, BlockNumberOf<T>, OrderItem<CollectionIdOf<T>, ItemIdOf<T>> >;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -160,25 +160,12 @@ pub mod pallet {
 		CreatedOrder{who: T::AccountId, order_id: T::ObjectId},
 		/// RemovedOrder \[who, order_id\]
 		RemovedOrder{who:T::AccountId, order_id:T::ObjectId},
-		RemovedOffer{who:T::AccountId,offer_id: T::ObjectId},
 		/// TakenOrder \[purchaser, order_owner, order_id\]
 		TakenOrder{purchaser:T::AccountId,
 			order_owner:T::AccountId,
 			order_id:T::ObjectId,
-			commission_agent:Option<(bool, T::AccountId, PerU16)>,
-			commission_data:Option<Vec<u8>>
 		},
 
-		/// TakenOffer \[token_owner, offer_owner, offer_id\]
-		TakenOffer{
-			purchaser:T::AccountId,
-			order_owner:T::AccountId,
-			offer_id:T::ObjectId,
-			commission_agent:Option<(bool, T::AccountId, PerU16)>,
-			commission_data:Option<Vec<u8>>
-		},
-		/// CreatedOffer \[who, offer_id\]
-		CreatedOffer{who:T::AccountId, offer_id:T::ObjectId},
 	}
 
 	#[pallet::pallet]
@@ -247,9 +234,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Create an order.
 		///
+		/// - `origin`: origin
 		/// - `asset_id`: currency id
-		/// - `category_id`: category id
-		/// - `deposit`: The balances to create an order
 		/// - `price`: vfes' price.
 		/// - `deadline`: deadline
 		/// - `items`: a list of `(class_id, instance_id, quantity, price)`
@@ -258,29 +244,22 @@ pub mod pallet {
 		pub fn submit_order(
 			origin: OriginFor<T>,
 			asset_id: AssetIdOf<T>,
-			#[pallet::compact] deposit: BalanceOf<T>,
 			#[pallet::compact] price: BalanceOf<T>,
 			#[pallet::compact] deadline: BlockNumberOf<T>,
 			items: BoundedVec<OrderItem<T::CollectionId, T::ItemId>, T::StringLimit>,
-			#[pallet::compact] commission_rate: PerU16,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-
-
-			// <T as Config>::Currency::reserve(&who, deposit.saturated_into())?;
 
 			ensure!(
 				frame_system::Pallet::<T>::block_number() < deadline,
 				Error::<T>::SubmitWithInvalidDeadline
 			);
-			let mut order = Order {
+			let order = Order {
 				asset_id,
-				deposit,
 				price,
 				deadline,
 				items: items.clone(),
-				commission_rate,
 			};
 
 			let order_id = T::UniqueId::generate_object_id(T::OrderId::get())?;
@@ -319,8 +298,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] order_id: T::ObjectId,
 			order_owner: <T::Lookup as StaticLookup>::Source,
-			commission_agent: Option<T::AccountId>,
-			commission_data: Option<Vec<u8>>,
 		) -> DispatchResultWithPostInfo {
 			let purchaser = ensure_signed(origin)?;
 			let order_owner = T::Lookup::lookup(order_owner)?;
@@ -328,11 +305,7 @@ pub mod pallet {
 			// Simplify the logic, to make life easier.
 			ensure!(purchaser != order_owner, Error::<T>::TakeOwnOrder);
 
-			// if let Some(c) = &commission_agent {
-			// 	ensure!(&purchaser != c, Error::<T>::SenderTakeCommission);
-			// }
-			
-
+	
 			let order: OrderOf<T> = Self::delete_order(&order_owner, order_id)?;
 
 
@@ -348,9 +321,7 @@ pub mod pallet {
 			let items_temp = &order.items[..];
 
 			// Skip check deadline of orders
-			// Orders are supposed to be valid until taken or cancelled
-			// let (items, commission_agent) = to_item_vec!(order, commission_agent);
-			// let (beneficiary, royalty_rate) = ensure_one_royalty!(items);
+	
 			Self::swap_assets(
 				&purchaser,
 				&order_owner,
@@ -368,8 +339,6 @@ pub mod pallet {
 				purchaser,
 				order_owner,
 				order_id,
-				commission_agent:None,
-				commission_data:None,
 		});
 			Ok(().into())
 		}
@@ -384,142 +353,18 @@ pub mod pallet {
 			#[pallet::compact] order_id: T::ObjectId,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			// Self::delete_order(&who, order_id)?;
+
 			let order: OrderOf<T> = Self::delete_order(&who, order_id)?;
 
-			// let order_account_id = Self::into_account_id(order_id);
-
 			for  item in  order.items.clone(){
-				// VFE::transfer(pay_vfes, pay_currency, *class_id, *instance_id, *quantity)?;
 				T::UniquesInstance::transfer(&item.collection_id,&item.item_id,&who)?;
 			}
 			Self::deposit_event(Event::RemovedOrder{who, order_id});
 			Ok(().into())
 		}
 
-		/// remove an offer by offer owner.
-		///
-		/// - `offer_id`: offer id
-		#[pallet::weight(100_000)]
-		#[transactional]
-		pub fn remove_offer(
-			origin: OriginFor<T>,
-			#[pallet::compact] offer_id: T::ObjectId,
-		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			Self::delete_offer(&who, offer_id)?;
-			Self::deposit_event(Event::RemovedOffer{who, offer_id});
-			Ok(().into())
-		}
+	
 
-		#[pallet::weight(100_000)]
-		#[transactional]
-		pub fn submit_offer(
-			origin: OriginFor<T>,
-			asset_id: AssetIdOf<T>,
-			#[pallet::compact] price: BalanceOf<T>,
-			#[pallet::compact] deadline: BlockNumberOf<T>,
-			items: BoundedVec<OrderItem<T::CollectionId, T::ItemId>, T::StringLimit>,
-			#[pallet::compact] commission_rate: PerU16,
-		) -> DispatchResultWithPostInfo {
-			let purchaser = ensure_signed(origin)?;
-			ensure!(
-				frame_system::Pallet::<T>::block_number() < deadline,
-				Error::<T>::SubmitWithInvalidDeadline
-			);
-
-			// ensure!(
-			// 	commission_rate <= T::ExtraConfig::get_max_commission_reward_rate(),
-			// 	Error::<T>::InvalidCommissionRate
-			// );
-
-			let offer_id  = T::UniqueId::generate_object_id(T::OfferId::get())?;
-
-			// Reserve balances of `asset_id` for tokenOwner to accept this offer.
-			// T::Currencies::frozen_balance(&purchaser,asset_id, price)?;
-
-
-			<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
-				asset_id,
-				&purchaser,
-				&Self::into_account_id(offer_id),
-				price,
-				true,
-			)?;
-
-
-			let  offer = Offer {
-				asset_id,
-				price,
-				deadline,
-				items: items,
-				commission_rate,
-			};
-
-			// ensure_one_royalty!(items);
-			// reserve_and_push_tokens::<_, _, _, T::VFE>(None, &items, &mut offer.items)?;
-
-			
-			Offers::<T>::insert(&purchaser, offer_id, offer);
-			Self::deposit_event(Event::CreatedOffer{who:purchaser, offer_id});
-			Ok(().into())
-		}
-
-		/// Take a VFE offer.
-		///
-		/// - `offer_id`: offer id
-		/// - `offer_owner`: Instance owner
-		#[pallet::weight(100_000)]
-		#[transactional]
-		pub fn take_offer(
-			origin: OriginFor<T>,
-			#[pallet::compact] offer_id: T::ObjectId,
-			offer_owner: <T::Lookup as StaticLookup>::Source,
-			commission_agent: Option<T::AccountId>,
-			commission_data: Option<Vec<u8>>,
-		) -> DispatchResultWithPostInfo {
-			let token_owner = ensure_signed(origin)?;
-			let offer_owner = T::Lookup::lookup(offer_owner)?;
-
-			// Simplify the logic, to make life easier.
-			ensure!(offer_owner != token_owner, Error::<T>::TakeOwnOffer);
-
-			if let Some(c) = &commission_agent {
-				ensure!(&token_owner != c, Error::<T>::SenderTakeCommission);
-			}
-
-			let offer: OfferOf<T> = Self::delete_offer(&offer_owner, offer_id)?;
-
-			// Check deadline of this offer
-			ensure!(
-				frame_system::Pallet::<T>::block_number() < offer.deadline,
-				Error::<T>::TakeExpiredOrderOrOffer
-			);
-
-			// let (items, commission_agent) = to_item_vec!(offer, commission_agent);
-			// let (beneficiary, royalty_rate) = ensure_one_royalty!(items);
-			// swap_assets::<T::Currencies, T::VFE, _, _, _, _>(
-			// 	&offer_owner,
-			// 	&token_owner,
-			// 	offer.asset_id,
-			// 	offer.price,
-			// 	&items,
-			// 	&Self::treasury_account_id(),
-			// 	T::ExtraConfig::get_platform_fee_rate(),
-			// 	&beneficiary,
-			// 	royalty_rate,
-			// 	&commission_agent,
-			// )?;
-
-			// Self::deposit_event(Event::TakenOffer(
-			// 	token_owner,
-			// 	offer_owner,
-			// 	offer_id,
-			// 	commission_agent,
-			// 	commission_data,
-			// ));
-			Ok(().into())
-		}
 	}
 }
 
@@ -633,56 +478,5 @@ impl<T: Config> Pallet<T> {
 
 
 
-	// pub fn treasury_account_id() -> T::AccountId {
-		// sp_runtime::traits::AccountIdConversion::<T::AccountId>::into_account(
-		// 	&T::TreasuryPalletId::get(),
-		// )
-	// }
-}
 
-// impl<T: Config> vfemart_traits::VfemartOrder<T::AccountId, CollectionIdOf<T>, ItemIdOf<T>>
-// for Pallet<T>
-// {
-// 	fn burn_orders(
-// 		who: &T::AccountId,
-// 		class_id: CollectionIdOf<T>,
-// 		instance_id: ItemIdOf<T>,
-// 	) -> DispatchResult {
-// 		let all_orders: Vec<T::ObjectId> = Orders::<T>::iter()
-// 			.filter(|(owner, _order_id, order)| {
-// 				let items = &order.items;
-// 				owner == who &&
-// 					items
-// 						.into_iter()
-// 						.any(|item| item.class_id == class_id && item.instance_id == instance_id)
-// 			})
-// 			.map(|(_owner, order_id, _order)| order_id)
-// 			.collect();
-// 		for order_id in all_orders {
-// 			Self::delete_order(&who, order_id)?;
-// 			Self::deposit_event(Event::RemovedOrder(who.clone(), order_id));
-// 		}
-// 		Ok(())
-// 	}
-// 	fn burn_offers(
-// 		who: &T::AccountId,
-// 		class_id: CollectionIdOf<T>,
-// 		instance_id: ItemIdOf<T>,
-// 	) -> DispatchResult {
-// 		let all_offers: Vec<T::ObjectId> = Offers::<T>::iter()
-// 			.filter(|(owner, _offer_id, offer)| {
-// 				let items = &offer.items;
-// 				owner == who &&
-// 					items
-// 						.into_iter()
-// 						.any(|item| item.class_id == class_id && item.instance_id == instance_id)
-// 			})
-// 			.map(|(_owner, offer_id, _offer)| offer_id)
-// 			.collect();
-// 		for offer_id in all_offers {
-// 			Self::delete_offer(&who, offer_id)?;
-// 			Self::deposit_event(Event::RemovedOffer(who.clone(), offer_id));
-// 		}
-// 		Ok(())
-// 	}
-// }
+}

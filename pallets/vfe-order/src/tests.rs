@@ -45,7 +45,7 @@ fn order_create() {
 		order_item_encode.push(order_item);
 		
 
-		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,0,10,100,BoundedVec::truncate_from(order_item_encode), PerU16::from_percent(10)));
+		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,10,100,BoundedVec::truncate_from(order_item_encode)));
 	
 		System::assert_has_event(Event::VFEorder(crate::Event::CreatedOrder{who:BOB,order_id: 1}));
 
@@ -70,11 +70,11 @@ fn order_create_test() {
 		order_item_encode.push(order_item);
 		
 
-		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,0,10,100,BoundedVec::truncate_from(order_item_encode.clone()), PerU16::from_percent(10)));
-
+		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,10,100,BoundedVec::truncate_from(order_item_encode.clone())));
+	
 
 		assert_noop!(
-			VFEorder::submit_order(Origin::signed(ALICE),1,0,10,100,BoundedVec::truncate_from(order_item_encode), PerU16::from_percent(10)),
+			VFEorder::submit_order(Origin::signed(ALICE),1,10,100,BoundedVec::truncate_from(order_item_encode)),
 			Error::<Test>::NotBelongToyYou
 		);
 
@@ -100,12 +100,12 @@ fn order_take_test() {
 		order_item_encode.push(order_item);
 		
 
-		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,0,10,100,BoundedVec::truncate_from(order_item_encode), PerU16::from_percent(10)));
+		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,10,100,BoundedVec::truncate_from(order_item_encode)));
 	
 
-		assert_ok!(VFEorder::take_order(Origin::signed(ALICE),1,BOB,None,None));
+		assert_ok!(VFEorder::take_order(Origin::signed(ALICE),1,BOB));
 	
-		System::assert_has_event(Event::VFEorder(crate::Event::TakenOrder{purchaser:ALICE,order_owner:BOB,order_id:1,commission_agent:None,commission_data:None}));
+		System::assert_has_event(Event::VFEorder(crate::Event::TakenOrder{purchaser:ALICE,order_owner:BOB,order_id:1}));
 
 		
 	});
@@ -127,7 +127,7 @@ fn order_remove_test() {
 		order_item_encode.push(order_item);
 		
 
-		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,0,10,100,BoundedVec::truncate_from(order_item_encode), PerU16::from_percent(10)));
+		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,10,100,BoundedVec::truncate_from(order_item_encode)));
 	
 
 		assert_ok!(VFEorder::remove_order(Origin::signed(BOB),1));
