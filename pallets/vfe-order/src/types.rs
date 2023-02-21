@@ -34,22 +34,18 @@ pub struct OrderItem<CollectionId, ItemId> {
 pub struct Order<AssetId,Balance, BlockNumber, BoundedItem> {
 	/// currency ID.
 	pub asset_id: AssetId,
-	/// The balances to create an order
-	pub deposit: Balance,
 	/// Price of this Instance.
 	pub price: Balance,
 	/// This order will be invalidated after `deadline` block number.
 	pub deadline: BlockNumber,
 	/// vfe list
 	pub items: BoundedItem,
-	/// commission rate
-	#[codec(compact)]
-	pub commission_rate: PerU16,
+
 }
 
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo,MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct Offer<AssetId,Balance, BlockNumber, BoundedItem> {
+pub struct Offer<AssetId,Balance, BlockNumber, OrderItem> {
 	/// currency ID.
 	pub asset_id: AssetId,
 	/// Price of this Instance.
@@ -57,7 +53,7 @@ pub struct Offer<AssetId,Balance, BlockNumber, BoundedItem> {
 	/// This order will be invalidated after `deadline` block number.
 	pub deadline: BlockNumber,
 	/// vfe list
-	pub items: BoundedItem,
+	pub item: OrderItem,
 	/// commission rate
 	#[codec(compact)]
 	pub commission_rate: PerU16,
