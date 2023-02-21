@@ -659,7 +659,7 @@ parameter_types! {
 	pub const IncentiveToken: ObjectId = 1;
 	pub const UnbindFee: Balance = MILLICENTS;
 	pub const CostUnit: Balance = DOLLARS / 10;
-	pub const EnergyRecoveryDuration: BlockNumber = HOURS * 4;
+	pub const EnergyRecoveryDuration: BlockNumber = HOURS * 2;
 	pub const DailyEarnedResetDuration: BlockNumber = HOURS * 24;
 	pub const LevelUpCostFactor: Balance = 7;
 	pub const InitEnergy: u16 = 8;
