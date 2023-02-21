@@ -506,6 +506,9 @@ impl<T: Config> Pallet<T> {
 
 	fn handle_buyback_asset(plan_id: T::ObjectId, plan: PlanInfoOf<T>) -> DispatchResult {
 		ensure!(plan.status == PlanStatus::Completed, Error::<T>::OperationIsNotAllowed);
+
+		//TODO: if plan still has buy-assets, transfer the remainder to the creator.
+
 		//Transfer or burn asset according to the `BuybackMode` of plan.
 		match plan.mode {
 			BuybackMode::Transfer =>
