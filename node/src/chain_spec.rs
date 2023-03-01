@@ -178,7 +178,7 @@ fn testnet_genesis(
 	initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
-	initial_assets: Vec<(AccountId, Balance, Vec<u8>, Vec<u8>, u8, Balance, Permill)>,
+	initial_assets: Vec<(AccountId, Balance, Vec<u8>, Vec<u8>, u8, Balance)>,
 	council: Vec<AccountId>,
 	technical_committee: Vec<AccountId>,
 	_enable_println: bool,
@@ -190,7 +190,7 @@ fn testnet_genesis(
 	let mut initial_assets = initial_assets;
 	initial_assets.insert(
 		0,
-		(root_key.clone(), 1, "Polket".into(), "PNT".into(), 12, 0, Permill::from_percent(0)),
+		(root_key.clone(), 1, "Polket".into(), "PNT".into(), 12, 0),
 	);
 
 	GenesisConfig {

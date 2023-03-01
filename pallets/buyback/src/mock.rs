@@ -195,7 +195,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		],
 		metadata: vec![
 			// id, name, symbol, decimals
-			(0, "Polket Native Token".into(), "PNT".into(), 12),
+			(0, "Polket Network Token".into(), "PNT".into(), 12),
 			(1, "To Earn Fun".into(), "FUN".into(), 12),
 		],
 		accounts: vec![

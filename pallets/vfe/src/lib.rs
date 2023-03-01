@@ -97,7 +97,13 @@ pub mod pallet {
 			+ MultiAssetsMutate<Self::AccountId>;
 
 		/// Unify the value types of ProudcerId, CollectionId, ItemId, AssetId
-		type ObjectId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
+		type ObjectId: Parameter
+			+ Member
+			+ AtLeast32BitUnsigned
+			+ Default
+			+ Copy
+			+ MaxEncodedLen
+			+ MaybeSerializeDeserialize;
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
 		type UniqueId: UniqueIdGenerator<ParentId = Self::Hash, ObjectId = Self::ObjectId>;
@@ -1108,6 +1114,14 @@ where
 		)?;
 		Self::deposit_event(Event::Burned { brand_id, item_id, owner });
 		Ok(())
+	}
+
+	/// The account ID of the pallet.
+	///
+	/// This actually does computation. If you need to keep using it, then make sure you cache the
+	/// value and only call this once.
+	pub fn account_id() -> T::AccountId {
+		T::PalletId::get().into_account_truncating()
 	}
 
 	/// The account ID of the Producer.
