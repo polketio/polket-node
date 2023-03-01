@@ -97,7 +97,13 @@ pub mod pallet {
 			+ MultiAssetsMutate<Self::AccountId>;
 
 		/// Unify the value types of ProudcerId, CollectionId, ItemId, AssetId
-		type ObjectId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
+		type ObjectId: Parameter
+			+ Member
+			+ AtLeast32BitUnsigned
+			+ Default
+			+ Copy
+			+ MaxEncodedLen
+			+ MaybeSerializeDeserialize;
 
 		/// UniqueId is used to generate new CollectionId or ItemId.
 		type UniqueId: UniqueIdGenerator<ParentId = Self::Hash, ObjectId = Self::ObjectId>;
@@ -751,7 +757,7 @@ pub mod pallet {
 			let mut device = Self::get_verified_device(from.clone(), puk, signature, nonce)?;
 			ensure!(device.item_id.is_none(), Error::<T>::DeviceBond);
 			// create the user if it is new
-			Self::create_new_user(from.clone());
+			Self::find_user(&from);
 
 			//If it is a registered device, it will mint a new vfe for the user.
 			let new_vfe = if device.status == DeviceStatus::Registered {
@@ -935,7 +941,7 @@ pub mod pallet {
 				let mut vfe = maybe_vfe.take().ok_or(Error::<T>::VFENotExist)?;
 				let vfe_owner = Self::owner(&brand_id, &item_id).ok_or(Error::<T>::VFENotExist)?;
 				ensure!(vfe_owner == who, Error::<T>::OperationIsNotAllowed);
-				let mut user = Users::<T>::get(&who).ok_or(Error::<T>::UserNotExist)?;
+				let mut user = Self::find_user(&who);
 
 				// Calculating level up fees for VFE
 				let level_cost = Self::calculate_level_up_costs(&vfe, &user);
@@ -1110,6 +1116,14 @@ where
 		Ok(())
 	}
 
+	/// The account ID of the pallet.
+	///
+	/// This actually does computation. If you need to keep using it, then make sure you cache the
+	/// value and only call this once.
+	pub fn account_id() -> T::AccountId {
+		T::PalletId::get().into_account_truncating()
+	}
+
 	/// The account ID of the Producer.
 	pub fn into_account_id(id: T::ObjectId) -> T::AccountId {
 		T::PalletId::get().into_sub_account_truncating(id)
@@ -1254,7 +1268,7 @@ where
 				let mut vfe =
 					VFEDetails::<T>::get(brand_id, item_id).ok_or(Error::<T>::VFENotExist)?;
 
-				let mut user = Users::<T>::get(account.clone()).ok_or(Error::<T>::UserNotExist)?;
+				let mut user = Self::find_user(&account);
 
 				ensure!(user.energy > 0, Error::<T>::EnergyExhausted);
 
@@ -1358,9 +1372,10 @@ where
 		Ok(producer.into())
 	}
 
-	// check the user if it is not exist and create it
-	fn create_new_user(account_id: T::AccountId) {
-		if !Users::<T>::contains_key(account_id.clone()) {
+	// find user by `account_id` if user not exist and create it
+	fn find_user(account_id: &T::AccountId) -> User<T::AccountId, T::BlockNumber, BalanceOf<T>> {
+		let maybe_user = Users::<T>::get(account_id);
+		let user = maybe_user.unwrap_or_else(|| {
 			let block_number = frame_system::Pallet::<T>::block_number();
 			let user = User {
 				owner: account_id.clone(),
@@ -1372,9 +1387,10 @@ where
 				earning_cap: Self::level_into_earning_cap(0),
 				earned: Zero::zero(),
 			};
-
-			Users::<T>::insert(account_id, user);
-		}
+			Users::<T>::insert(account_id, user.clone());
+			user
+		});
+		user
 	}
 
 	// create VFE
@@ -1534,7 +1550,7 @@ where
 
 	// restore user energy
 	fn _restore_energy(who: &T::AccountId) -> DispatchResult {
-		let mut user = Users::<T>::get(&who).ok_or(Error::<T>::UserNotExist)?;
+		let mut user = Self::find_user(&who);
 		let last_energy_recovery = LastEnergyRecovery::<T>::get();
 		if user.energy < user.energy_total {
 			let user_last_restore_block = user.last_restore_block;
@@ -1567,7 +1583,7 @@ where
 
 	// reset user daily earned
 	fn _reset_daily_earned(who: &T::AccountId) -> DispatchResult {
-		let mut user = Users::<T>::get(&who).ok_or(Error::<T>::UserNotExist)?;
+		let mut user = Self::find_user(&who);
 
 		let user_last_earned_reset_block = user.last_earned_reset_block;
 		let last_daily_earned_reset = LastDailyEarnedReset::<T>::get();
@@ -1684,12 +1700,11 @@ where
 		item: T::ItemId,
 	) -> BalanceOf<T> {
 		let vfe = VFEDetails::<T>::get(brand_id, item);
-		let user = Users::<T>::get(&who);
+		let user = Self::find_user(&who);
 		let vfe_owner = Self::owner(&brand_id, &item);
-		if vfe.is_some() && user.is_some() && vfe_owner.is_some() {
+		if vfe.is_some() && vfe_owner.is_some() {
 			let vfe_owner = vfe_owner.unwrap();
 			let vfe = vfe.unwrap();
-			let user = user.unwrap();
 			if vfe_owner == who {
 				Self::calculate_level_up_costs(&vfe, &user)
 			} else {
@@ -1705,7 +1720,7 @@ where
 		let vfe = VFEDetails::<T>::get(brand_id, item).ok_or(Error::<T>::VFENotExist)?;
 		ensure!(vfe.remaining_battery >= 100, Error::<T>::VFENotFullyCharged);
 		ensure!(!vfe.is_upgrading, Error::<T>::VFEUpgrading);
-		ensure!(!vfe.device_key.is_none(), Error::<T>::VFEBond);
+		ensure!(vfe.device_key.is_none(), Error::<T>::VFEBond);
 		Ok(())
 	}
 
