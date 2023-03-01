@@ -404,6 +404,10 @@ fn payback_no_participant_should_work() {
 	new_test_ext().execute_with(|| {
 		let creator = ALICE;
 		create_test_plan(creator.clone(), 10000, BuybackMode::Burn, 5);
+		let creator_remaining_amount = Currencies::balance(0, &creator);
+		// 1000000 - 10000 = 990000
+		assert_eq!(creator_remaining_amount, 990000);
+
 		run_to_block(16);
 
 		// let plan = BuybackPlans::<Test>::get(1);
@@ -411,6 +415,10 @@ fn payback_no_participant_should_work() {
 		System::assert_has_event(Event::Buyback(crate::Event::PlanStarted { plan_id: 1 }));
 		System::assert_has_event(Event::Buyback(crate::Event::PlanCompleted { plan_id: 1 }));
 		System::assert_has_event(Event::Buyback(crate::Event::AllPaybacked { plan_id: 1 }));
+
+		let creator_remaining_amount = Currencies::balance(0, &creator);
+		// 990000 + 10000 = 1000000
+		assert_eq!(creator_remaining_amount, 1000000);
 	});
 }
 
