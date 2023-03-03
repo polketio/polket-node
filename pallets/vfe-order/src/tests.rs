@@ -49,6 +49,12 @@ fn order_create() {
 	
 		System::assert_has_event(Event::VFEorder(crate::Event::CreatedOrder{who:BOB,order_id: 1}));
 
+		// if you want to try again,it will show "NotBelongToyYou"
+		assert_noop!(
+			VFEorder::submit_order(Origin::signed(BOB),1,10,100,BoundedVec::truncate_from(order_item_encode)),
+			Error::<Test>::NotBelongToyYou
+		);
+
 
 		
 	});
