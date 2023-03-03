@@ -30,6 +30,7 @@ impl Default for DeviceStatus {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum SportType {
 	/// JumpRope
 	JumpRope = 0,

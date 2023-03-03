@@ -507,7 +507,18 @@ impl<T: Config> Pallet<T> {
 	fn handle_buyback_asset(plan_id: T::ObjectId, plan: PlanInfoOf<T>) -> DispatchResult {
 		ensure!(plan.status == PlanStatus::Completed, Error::<T>::OperationIsNotAllowed);
 
-		//TODO: if plan still has buy-assets, transfer the remainder to the creator.
+		// if plan still has buy-assets, transfer the remainder to the creator.
+		let remaining_buy_assets =
+			T::Currencies::balance(plan.buy_asset_id, &Self::into_account_id(plan_id));
+		if !remaining_buy_assets.is_zero() {
+			<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
+				plan.buy_asset_id,
+				&Self::into_account_id(plan_id),
+				&plan.creator,
+				remaining_buy_assets,
+				false,
+			)?;
+		}
 
 		//Transfer or burn asset according to the `BuybackMode` of plan.
 		match plan.mode {

@@ -1013,6 +1013,12 @@ fn transfer_unit_test() {
 			Error::<Test>::VFENotFullyCharged
 		);
 		assert_ok!(VFE::restore_power(Origin::signed(user.clone()), 1, 1, 6));
+		assert_noop!(
+			VFE::transfer(Origin::signed(user.clone()), 1, 1, to.clone()),
+			Error::<Test>::VFEBond
+		);
+		//after unbind device, VFE can be transferred.
+		assert_ok!(VFE::unbind_device(Origin::signed(user.clone()), 1, 1,));
 		assert_ok!(VFE::transfer(Origin::signed(user.clone()), 1, 1, to.clone()));
 		System::assert_has_event(Event::VFE(crate::Event::Transferred {
 			brand_id: 1,
