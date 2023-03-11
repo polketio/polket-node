@@ -5,28 +5,8 @@
 use super::*;
 use crate::{
 	mock::{Event, *},
-	Call,
 };
 use frame_support::{assert_noop, assert_ok};
-use hex_literal::hex;
-use p256::{
-	ecdsa::{
-		signature::{Signature as Sig, Signer, Verifier},
-		Signature, SigningKey, VerifyingKey,
-	},
-	elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
-	NistP256,
-};
-use rand_core::OsRng;
-use sha2::Digest;
-use sp_core::crypto::Ss58Codec;
-use sp_std::convert::TryInto;
-
-macro_rules! bvec {
-	($( $x:tt )*) => {
-		vec![$( $x )*].try_into().unwrap()
-	}
-}
 
 
 
@@ -45,7 +25,7 @@ fn order_create() {
 		order_item_encode.push(order_item);
 		
 
-		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,10,100,BoundedVec::truncate_from(order_item_encode)));
+		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,10,100,BoundedVec::truncate_from(order_item_encode.clone())));
 	
 		System::assert_has_event(Event::VFEorder(crate::Event::CreatedOrder{who:BOB,order_id: 1}));
 
@@ -68,19 +48,26 @@ fn order_create_test() {
 		assert_ok!(VFEUniques::create(Origin::signed(ALICE), BOB));
 		assert_ok!(VFEUniques::mint(Origin::signed(BOB),0,0, BOB));
 
+
 		let order_item = OrderItem {
 			collection_id: 0,
 			item_id: 0,
 		};
-		let mut order_item_encode: Vec<OrderItem<u32,u32>> = Vec::with_capacity(1);
-		order_item_encode.push(order_item);
+		let mut order_item_encode1: Vec<OrderItem<u32,u32>> = Vec::with_capacity(1);
+		order_item_encode1.push(order_item);
 		
-
-		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,10,100,BoundedVec::truncate_from(order_item_encode.clone())));
+		assert_ok!(VFEorder::submit_order(Origin::signed(BOB),1,10,100,BoundedVec::truncate_from(order_item_encode1)));
 	
+		let order_item2 = OrderItem {
+			collection_id: 0,
+			item_id: 0,
+		};
 
+		let mut order_item_encode2: Vec<OrderItem<u32,u32>> = Vec::with_capacity(1);
+		order_item_encode2.push(order_item2);
+		
 		assert_noop!(
-			VFEorder::submit_order(Origin::signed(ALICE),1,10,100,BoundedVec::truncate_from(order_item_encode)),
+			VFEorder::submit_order(Origin::signed(ALICE),1,10,100,BoundedVec::truncate_from(order_item_encode2)),
 			Error::<Test>::NotBelongToyYou
 		);
 
