@@ -8,27 +8,22 @@ use frame_support::{
 		fungibles,
 		fungibles::{Inspect as MultiAssets, Mutate as MultiAssetsMutate, Transfer},
 		tokens::nonfungibles::{
-			Create, Inspect, InspectEnumerable, Mutate, Transfer as NFTTransfer,
+			 Inspect,   Transfer as NFTTransfer,
 		},
-		Currency, ReservableCurrency,
 	},
 	transactional, PalletId,
 };
+
+
 use frame_system::pallet_prelude::*;
-use pallet_support::{
-	fungibles::AssetFronze, trade::UniqueTradeGenerator, uniqueid::UniqueIdGenerator,
-};
-use scale_info::{prelude::format, TypeInfo};
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
+use pallet_support::uniqueid::UniqueIdGenerator;
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, CheckedSub,
-		MaybeSerializeDeserialize, One, Saturating, StaticLookup, Verify,
+		AccountIdConversion, AtLeast32BitUnsigned,  
+		  Saturating, StaticLookup, 
 	},
-	PerU16, RuntimeDebug, SaturatedConversion,
+	PerU16,  
 };
-use sp_std::vec::Vec;
 pub mod types;
 // mod mock;
 // mod tests;
@@ -363,28 +358,28 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	fn delete_offer(
-		who: &T::AccountId,
-		order_id: T::ObjectId,
-	) -> Result<OfferOf<T>, DispatchError> {
-		Offers::<T>::try_mutate_exists(who, order_id, |maybe_offer| {
-			let offer: OfferOf<T> = maybe_offer.as_mut().ok_or(Error::<T>::OfferNotFound)?.clone();
+	// fn delete_offer(
+	// 	who: &T::AccountId,
+	// 	order_id: T::ObjectId,
+	// ) -> Result<OfferOf<T>, DispatchError> {
+	// 	Offers::<T>::try_mutate_exists(who, order_id, |maybe_offer| {
+	// 		let offer: OfferOf<T> = maybe_offer.as_mut().ok_or(Error::<T>::OfferNotFound)?.clone();
 
-			// Can we safely ignore this remain value?
-			// let _remain: BalanceOf<T> = T::Currencies::unfrozen_balance(who,offer.asset_id,
-			// offer.price.saturated_into())?;
+	// 		// Can we safely ignore this remain value?
+	// 		// let _remain: BalanceOf<T> = T::Currencies::unfrozen_balance(who,offer.asset_id,
+	// 		// offer.price.saturated_into())?;
 
-			*maybe_offer = None;
+	// 		*maybe_offer = None;
 
-			Ok(offer)
-		})
-	}
+	// 		Ok(offer)
+	// 	})
+	// }
 
-	fn get_and_increment_order_id() -> Vec<u8> {
-		let nonce = OrderId::<T>::get();
-		OrderId::<T>::put(nonce.wrapping_add(1));
-		nonce.encode()
-	}
+	// fn get_and_increment_order_id() -> Vec<u8> {
+	// 	let nonce = OrderId::<T>::get();
+	// 	OrderId::<T>::put(nonce.wrapping_add(1));
+	// 	nonce.encode()
+	// }
 
 	pub fn into_account_id(id: T::ObjectId) -> T::AccountId {
 		T::PalletId::get().into_sub_account_truncating(id)

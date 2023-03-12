@@ -13,7 +13,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	AccountId32, Permill,
 };
-use system::{EnsureRoot, RawOrigin};
+use system::RawOrigin;
 
 pub type AccountId = AccountId32;
 
@@ -21,7 +21,6 @@ pub const ALICE: AccountId = AccountId::new([1u8; 32]);
 pub const BOB: AccountId = AccountId::new([2u8; 32]);
 pub const TOM: AccountId = AccountId::new([3u8; 32]);
 pub const CANDY: AccountId = AccountId::new([4u8; 32]);
-pub const DANY: AccountId = AccountId::new([5u8; 32]);
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -295,14 +294,14 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-pub(crate) fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		if System::block_number() > 1 {
-			VFEorder::on_finalize(System::block_number());
-			System::on_finalize(System::block_number());
-		}
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		VFEorder::on_initialize(System::block_number());
-	}
-}
+// pub(crate) fn run_to_block(n: u64) {
+// 	while System::block_number() < n {
+// 		if System::block_number() > 1 {
+// 			VFEorder::on_finalize(System::block_number());
+// 			System::on_finalize(System::block_number());
+// 		}
+// 		System::set_block_number(System::block_number() + 1);
+// 		System::on_initialize(System::block_number());
+// 		VFEorder::on_initialize(System::block_number());
+// 	}
+// }

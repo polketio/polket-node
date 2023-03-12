@@ -498,6 +498,25 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = ();
 }
 
+
+
+// pub struct EraPayout;
+// impl pallet_staking::EraPayout<Balance> for EraPayout {
+// 	fn era_payout(
+// 		total_staked: Balance,
+// 		total_issuance: Balance,
+// 		era_duration_millis: u64,
+// 	) -> (Balance, Balance) {
+// 		let block_reward_halving_period = 4 * 365 * 24 * 60 * 60 / 6 = 700800u128;
+// 		let blocks_per_era = 10u64;
+// 		let initial_reward = 1_000_000_000u128 * 10u128.pow(8) / (2 * block_reward_halving_period.pow(2));
+//         let era_reward = initial_reward / 2u32.pow((era_duration.saturated_into::<u64>() / blocks_per_era) as u32);
+//         let validator_reward = era_reward / 2u128;
+//         let treasury_reward = era_reward - validator_reward;
+//         (validator_reward.saturated_into(), treasury_reward.saturated_into())
+// 	}
+// }
+
 parameter_types! {
 	pub const StartId: ObjectId = 1;
 	pub const MaxId: ObjectId = ObjectId::MAX / 2; //half of u64

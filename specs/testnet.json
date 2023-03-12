@@ -2,7 +2,9 @@
   "name": "Polket Staging Testnet",
   "id": "polket_staging_testnet",
   "chainType": "Live",
-  "bootNodes": [],
+  "bootNodes": [
+    "/ip4/8.218.182.123/tcp/30333/p2p/12D3KooWJRpB9BPbe6t3PShjEkVHNQxp1xXGGy1exrgKZ6JBadvL"
+  ],
   "telemetryEndpoints": [
     [
       "/dns/telemetry.polkadot.io/tcp/443/x-parity-wss/%2Fsubmit%2F",
