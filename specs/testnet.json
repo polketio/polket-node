@@ -3,7 +3,7 @@
   "id": "polket_staging_testnet",
   "chainType": "Live",
   "bootNodes": [
-    "/ip4/8.218.182.123/tcp/30333/p2p/12D3KooWJRpB9BPbe6t3PShjEkVHNQxp1xXGGy1exrgKZ6JBadvL"
+    "/ip4/8.218.182.123/tcp/30331/p2p/12D3KooWQHkNMtS8mG5C8HNYgDyNRPD1BjrMFMhnpQoFrpDH4ZDn"
   ],
   "telemetryEndpoints": [
     [
