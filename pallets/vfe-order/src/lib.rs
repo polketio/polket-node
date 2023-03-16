@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::too_many_arguments)]
 
 use codec::HasCompact;
 use frame_support::{
@@ -7,22 +8,16 @@ use frame_support::{
 	traits::{
 		fungibles,
 		fungibles::{Inspect as MultiAssets, Mutate as MultiAssetsMutate, Transfer},
-		tokens::nonfungibles::{
-			 Inspect,   Transfer as NFTTransfer,
-		},
+		tokens::nonfungibles::{Inspect, Transfer as NFTTransfer},
 	},
 	transactional, PalletId,
 };
 
-
 use frame_system::pallet_prelude::*;
 use pallet_support::uniqueid::UniqueIdGenerator;
 use sp_runtime::{
-	traits::{
-		AccountIdConversion, AtLeast32BitUnsigned,  
-		  Saturating, StaticLookup, 
-	},
-	PerU16,  
+	traits::{AccountIdConversion, AtLeast32BitUnsigned, Saturating, StaticLookup},
+	PerU16,
 };
 pub mod types;
 // mod mock;
@@ -328,7 +323,7 @@ pub mod pallet {
 
 			let order: OrderOf<T> = Self::delete_order(&who, order_id)?;
 
-			for item in order.items.clone() {
+			for item in order.items {
 				T::UniquesInstance::transfer(&item.collection_id, &item.item_id, &who)?;
 			}
 			Self::deposit_event(Event::RemovedOrder { who, order_id });
@@ -403,7 +398,7 @@ impl<T: Config> Pallet<T> {
 		<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
 			asset_id,
 			pay_currency,
-			&pay_vfes,
+			pay_vfes,
 			price,
 			false,
 		)?;
@@ -411,7 +406,7 @@ impl<T: Config> Pallet<T> {
 		<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
 			asset_id,
 			pay_vfes,
-			&treasury,
+			treasury,
 			trading_fee,
 			false,
 		)?;
@@ -419,7 +414,7 @@ impl<T: Config> Pallet<T> {
 		<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
 			asset_id,
 			pay_vfes,
-			&beneficiary,
+			beneficiary,
 			royalty_fee,
 			false,
 		)?;
@@ -431,7 +426,7 @@ impl<T: Config> Pallet<T> {
 				<T::Currencies as fungibles::Transfer<T::AccountId>>::transfer(
 					asset_id,
 					pay_vfes,
-					&agent,
+					agent,
 					rate.mul_ceil(r),
 					false,
 				)?;

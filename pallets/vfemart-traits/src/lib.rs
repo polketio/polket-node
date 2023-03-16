@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::unnecessary_cast)]
+#![allow(clippy::too_many_arguments)]
 
 pub use enumflags2::BitFlags;
 use frame_support::{
@@ -213,7 +214,6 @@ where
 }
 
 /// Swap assets between vfes owner and vfes purchaser.
-#[allow(clippy::too_many_arguments)]
 pub fn swap_assets<MultiCurrency, VFE, AccountId, CollectionId, ItemId, AssetId>(
 	pay_currency: &AccountId,
 	pay_vfes: &AccountId,

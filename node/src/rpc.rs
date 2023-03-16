@@ -116,7 +116,7 @@ where
 	io.merge(
 		Babe::new(
 			client.clone(),
-			shared_epoch_changes.clone(),
+			shared_epoch_changes,
 			keystore,
 			babe_config,
 			select_chain,
@@ -127,7 +127,7 @@ where
 	io.merge(
 		Grandpa::new(
 			subscription_executor,
-			shared_authority_set.clone(),
+			shared_authority_set,
 			shared_voter_state,
 			justification_stream,
 			finality_provider,
@@ -137,7 +137,7 @@ where
 
 	//custom rpc
 	io.merge(Vfe::new(client.clone()).into_rpc())?;
-	io.merge(Currencies::new(client.clone()).into_rpc())?;
+	io.merge(Currencies::new(client).into_rpc())?;
 
 	Ok(io)
 }

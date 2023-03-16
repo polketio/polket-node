@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::too_many_arguments)]
 
 use frame_support::{
 	dispatch::DispatchResult,
@@ -376,8 +377,8 @@ pub mod pallet {
 				ParticipantRegistrations::<T>::insert(&plan_id, &who, participant_info);
 
 				// 6. Update `PlanInfo`.
-				plan.total_sell = plan.total_sell + amount;
-				plan.seller_amount = plan.seller_amount + 1;
+				plan.total_sell += amount;
+				plan.seller_amount += 1;
 				*maybe_plan = Some(plan);
 
 				// 7. Emit Event.
@@ -478,16 +479,16 @@ impl<T: Config> Pallet<T> {
 		// 3. Iteration `ParticipantRegistrations` within `IterationsLimit` to `withdraw`
 		// rewards.
 		let participants = ParticipantRegistrations::<T>::iter_key_prefix(&plan_id);
-		let mut payback_count = 0u32;
+		// let mut payback_count = 0u32;
 		let mut all_payback = true;
-		for who in participants {
-			if payback_count >= T::IterationsLimit::get() {
+		for (payback_count, who) in participants.enumerate() {
+			if payback_count >= T::IterationsLimit::get() as usize {
 				// Not everyone was able to be payback this time around.
 				all_payback = false;
 				break
 			}
 			Self::do_withdraw(who, plan_id)?;
-			payback_count += 1;
+			// payback_count += 1;
 		}
 
 		// 4. Emit Event.

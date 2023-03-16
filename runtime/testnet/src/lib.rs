@@ -151,11 +151,7 @@ pub struct BaseCallFilter;
 impl Contains<Call> for BaseCallFilter {
 	fn contains(call: &Call) -> bool {
 		if let Call::Assets(assets_method) = call {
-			return match assets_method {
-				pallet_assets::Call::create { .. } | pallet_assets::Call::force_create { .. } =>
-					false,
-				_ => true,
-			}
+			return !matches!(assets_method, pallet_assets::Call::create { .. } | pallet_assets::Call::force_create { .. })
 		}
 
 		true
@@ -822,7 +818,7 @@ where
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
 		let address = AccountIdLookup::unlookup(account);
 		let (call, extra, _) = raw_payload.deconstruct();
-		Some((call, (address, signature.into(), extra)))
+		Some((call, (address, signature, extra)))
 	}
 }
 

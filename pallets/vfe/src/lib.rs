@@ -16,6 +16,7 @@
 //! 11. Consumers unbind devices for VFE.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::type_complexity)]
 
 use bitcoin_hashes::ripemd160 as Ripemd;
 use frame_support::{
@@ -73,6 +74,7 @@ type BalanceOf<T> =
 type AssetIdOf<T> =
 	<<T as Config>::Currencies as MultiAssets<<T as frame_system::Config>::AccountId>>::AssetId;
 type VFEBrandApprovalOf<T> = VFEBrandApprove<AssetIdOf<T>, BalanceOf<T>>;
+// type DeviceOf<T> = Device<<T as Config>::CollectionId, <T as Config>::ItemId, T::ObjectId, AssetIdOf<T>, BalanceOf<T>>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -465,14 +467,14 @@ pub mod pallet {
 				//update
 				LastEnergyRecovery::<T>::put(n);
 				Self::deposit_event(Event::GlobalEnergyRecoveryOccurred { block_number: n });
-				weight = weight + T::DbWeight::get().writes(1);
+				weight += T::DbWeight::get().writes(1);
 			}
 
 			if (n % T::DailyEarnedResetDuration::get()).is_zero() {
 				//update
 				LastDailyEarnedReset::<T>::put(n);
 				Self::deposit_event(Event::GlobalDailyEarnedResetOccurred { block_number: n });
-				weight = weight + T::DbWeight::get().writes(1);
+				weight += T::DbWeight::get().writes(1);
 			}
 
 			weight
@@ -506,10 +508,7 @@ pub mod pallet {
 			// auto increase ID
 			let index = T::UniqueId::generate_object_id(T::ProducerId::get())?;
 
-			Producers::<T>::insert(
-				index.clone(),
-				Producer { owner: who.clone(), id: index.clone() },
-			);
+			Producers::<T>::insert(index, Producer { owner: who.clone(), id: index });
 
 			Self::deposit_event(Event::ProducerRegister { who, producer_id: index });
 			Ok(())
@@ -527,7 +526,7 @@ pub mod pallet {
 			// Get identity role of origin
 			let owner = ensure_signed(origin)?;
 			let new_owner = T::Lookup::lookup(new_owner)?;
-			let mut producer = Self::check_producer(owner.clone(), id.clone())?;
+			let mut producer = Self::check_producer(owner.clone(), id)?;
 			// change the new owner
 			producer.owner = new_owner.clone();
 			Producers::<T>::insert(id, producer);
@@ -576,8 +575,8 @@ pub mod pallet {
 				&cid,
 				VFEBrand {
 					brand_id: brand_id.into(),
-					sport_type: sport_type.clone(),
-					rarity: rarity.clone(),
+					sport_type,
+					rarity,
 					approvals: 0,
 					uri: meta_data.clone(),
 				},
@@ -628,8 +627,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(!Devices::<T>::contains_key(puk), Error::<T>::DeviceExisted);
 			let producer = Self::check_producer(who.clone(), producer_id)?;
-			let vfe_brand =
-				VFEBrands::<T>::get(brand_id.clone()).ok_or(Error::<T>::VFEBrandNotFound)?;
+			let vfe_brand = VFEBrands::<T>::get(brand_id).ok_or(Error::<T>::VFEBrandNotFound)?;
 
 			// Check if the collection is authorized to the producer
 			VFEApprovals::<T>::try_mutate(
@@ -667,11 +665,11 @@ pub mod pallet {
 					approved.remaining_mint = remaining;
 
 					Devices::<T>::insert(
-						puk.clone(),
+						puk,
 						Device {
 							brand_id,
 							item_id: None,
-							producer_id: producer.id.clone(),
+							producer_id: producer.id,
 							status: DeviceStatus::Registered,
 							pk: puk,
 							nonce: 0u32,
@@ -763,7 +761,7 @@ pub mod pallet {
 			let new_vfe = if device.status == DeviceStatus::Registered {
 				let vfe = Self::create_vfe(&device.brand_id, &device.producer_id, &from)?;
 				// save new vfe detail
-				VFEDetails::<T>::insert(&vfe.brand_id, &vfe.item_id, vfe.clone());
+				VFEDetails::<T>::insert(&vfe.brand_id, &vfe.item_id, vfe);
 				Self::deposit_event(Event::VFECreated { owner: from.clone(), detail: vfe });
 				Some(vfe)
 			} else {
@@ -793,7 +791,7 @@ pub mod pallet {
 			};
 
 			// save vfe detail after bond
-			VFEDetails::<T>::insert(&vfe.brand_id, &vfe.item_id, vfe.clone());
+			VFEDetails::<T>::insert(&vfe.brand_id, &vfe.item_id, vfe);
 
 			device.nonce = nonce;
 			device.item_id = Some(vfe.item_id);
@@ -802,7 +800,7 @@ pub mod pallet {
 			Devices::<T>::insert(puk, device);
 			Self::deposit_event(Event::DeviceBound {
 				owner: from,
-				device_key: puk.clone(),
+				device_key: puk,
 				brand_id: device.brand_id,
 				item_id: vfe.item_id,
 			});
@@ -891,17 +889,17 @@ pub mod pallet {
 			ensure!(vfe.remaining_battery < 100u16, Error::<T>::VFEFullyCharged);
 			ensure!((vfe.remaining_battery + charge_num) <= 100u16, Error::<T>::ValueOverflow);
 
-			let total_charge_cost = Self::calculate_charging_costs(vfe.clone(), charge_num);
+			let total_charge_cost = Self::calculate_charging_costs(vfe, charge_num);
 
 			// try to burn the charge
 			let incentive_token =
 				IncentiveToken::<T>::get().ok_or(Error::<T>::IncentiveTokenNotSet)?;
 			T::Currencies::burn_from(incentive_token, &owner, total_charge_cost)?;
 
-			vfe.remaining_battery = vfe.remaining_battery + charge_num;
+			vfe.remaining_battery += charge_num;
 
 			// save common_prize
-			VFEDetails::<T>::insert(brand_id.clone(), item.clone(), vfe);
+			VFEDetails::<T>::insert(brand_id, item, vfe);
 
 			Self::deposit_event(Event::PowerRestored {
 				owner,
@@ -951,8 +949,8 @@ pub mod pallet {
 					IncentiveToken::<T>::get().ok_or(Error::<T>::IncentiveTokenNotSet)?;
 				T::Currencies::burn_from(incentive_token, &who, level_cost)?;
 
-				vfe.level = vfe.level + 1;
-				vfe.available_points = vfe.available_points + 1 * vfe.rarity.growth_points();
+				vfe.level += 1;
+				vfe.available_points += vfe.rarity.growth_points();
 				*maybe_vfe = Some(vfe);
 
 				// increase the user's energy cap and earing cap of daily
@@ -1072,12 +1070,8 @@ pub mod pallet {
 					valid_device_tx((puk, signature))
 				},
 				Call::upload_training_report { device_pk, report_sig, report_data } => {
-					Self::check_device_training_report(
-						device_pk.clone(),
-						report_sig.clone(),
-						report_data,
-					)
-					.map_err(dispatch_error_to_invalid)?;
+					Self::check_device_training_report(device_pk, report_sig.clone(), report_data)
+						.map_err(dispatch_error_to_invalid)?;
 					valid_device_tx((device_pk, report_sig))
 				},
 
@@ -1182,7 +1176,7 @@ where
 		// check the validity of the signature
 		let flag = verify_key.verify(&msg, &sig).is_ok();
 
-		return Ok(flag)
+		Ok(flag)
 	}
 
 	// verifty the device binding signature and return device.
@@ -1196,7 +1190,7 @@ where
 		DispatchError,
 	> {
 		// get the producer owner
-		let device = Devices::<T>::get(puk.clone()).ok_or(Error::<T>::DeviceNotExisted)?;
+		let device = Devices::<T>::get(puk).ok_or(Error::<T>::DeviceNotExisted)?;
 
 		ensure!(device.status != DeviceStatus::Voided, Error::<T>::DeviceVoided);
 
@@ -1230,7 +1224,7 @@ where
 			.map_err(|_| Error::<T>::PublicKeyEncodeError)?;
 
 		// check the validity of the signature
-		let final_msg: &[u8] = &msg.as_ref();
+		let final_msg: &[u8] = msg.as_ref();
 		let flag = verify_key.verify(final_msg, &sig).is_ok();
 
 		ensure!(flag, Error::<T>::DeviceSignatureInvalid);
@@ -1296,8 +1290,8 @@ where
 				}
 
 				// update user energy and vfe remaining battery
-				user.energy = user.energy - power_used;
-				vfe.remaining_battery = vfe.remaining_battery.clone() - power_used;
+				user.energy -= power_used;
+				vfe.remaining_battery -= power_used;
 
 				let r_luck = Self::random_value(vfe.current_ability.luck) + 1;
 				let r_skill = (vfe.current_ability.skill * training_report.max_jump_rope_count) /
@@ -1334,11 +1328,11 @@ where
 				device.timestamp = training_report.timestamp;
 				Devices::<T>::insert(device.pk, device);
 				Users::<T>::insert(account.clone(), user);
-				VFEDetails::<T>::insert(brand_id.clone(), item_id.clone(), vfe);
+				VFEDetails::<T>::insert(brand_id, item_id, vfe);
 
 				let reward_asset_id =
 					IncentiveToken::<T>::get().ok_or(Error::<T>::IncentiveTokenNotSet)?;
-				T::Currencies::mint_into(reward_asset_id, &account.clone(), actual_award.clone())?;
+				T::Currencies::mint_into(reward_asset_id, &account, actual_award)?;
 
 				Self::deposit_event(Event::TrainingReportsAndRewards {
 					owner: account,
@@ -1369,13 +1363,13 @@ where
 		let producer = Producers::<T>::get(id).ok_or(Error::<T>::ProducerNotExist)?;
 		// check the machine owner
 		ensure!(owner == producer.owner, Error::<T>::OperationIsNotAllowed);
-		Ok(producer.into())
+		Ok(producer)
 	}
 
 	// find user by `account_id` if user not exist and create it
 	fn find_user(account_id: &T::AccountId) -> User<T::AccountId, T::BlockNumber, BalanceOf<T>> {
 		let maybe_user = Users::<T>::get(account_id);
-		let user = maybe_user.unwrap_or_else(|| {
+		maybe_user.unwrap_or_else(|| {
 			let block_number = frame_system::Pallet::<T>::block_number();
 			let user = User {
 				owner: account_id.clone(),
@@ -1389,8 +1383,7 @@ where
 			};
 			Users::<T>::insert(account_id, user.clone());
 			user
-		});
-		user
+		})
 	}
 
 	// create VFE
@@ -1410,14 +1403,14 @@ where
 		let (_, gene, _) = Self::generate_random_number();
 
 		// approve producer to mint new vfe
-		let item_id = Self::do_mint_approved(brand_id.to_owned(), producer_id, &owner)?;
+		let item_id = Self::do_mint_approved(brand_id.to_owned(), producer_id, owner)?;
 
 		let block_number = frame_system::Pallet::<T>::block_number();
 		let base_ability = VFEAbility { efficiency, skill, luck, durable };
 		let vfe = VFEDetail {
 			brand_id: brand_id.to_owned(),
-			item_id: item_id.clone(),
-			base_ability: base_ability.clone(),
+			item_id,
+			base_ability,
 			current_ability: base_ability,
 			rarity,
 			level: 0,
@@ -1464,7 +1457,7 @@ where
 				},
 			};
 
-			if mint_cost != None {
+			if mint_cost.is_some() {
 				// only total_can_mint == 0 can mutate total_can_mint
 				ensure!(approved.remaining_mint == 0, Error::<T>::RemainingMintAmountIsNotZero);
 				approved.mint_cost = mint_cost;
@@ -1506,7 +1499,7 @@ where
 					Self::collection_owner(&vfe_brand_id).ok_or(Error::<T>::VFEBrandNotFound)?;
 				let parent_id = Self::into_parent_id(T::VFEBrandId::get(), vfe_brand_id.into());
 				let instance = T::UniqueId::generate_object_id(parent_id)?;
-				Self::do_mint(vfe_brand_id.clone(), instance.into(), who.clone())?;
+				Self::do_mint(vfe_brand_id, instance.into(), who.clone())?;
 
 				// mint_cost handle transfer
 				if let Some((mint_asset_id, mint_price)) = approved.mint_cost {
@@ -1550,7 +1543,7 @@ where
 
 	// restore user energy
 	fn _restore_energy(who: &T::AccountId) -> DispatchResult {
-		let mut user = Self::find_user(&who);
+		let mut user = Self::find_user(who);
 		let last_energy_recovery = LastEnergyRecovery::<T>::get();
 		if user.energy < user.energy_total {
 			let user_last_restore_block = user.last_restore_block;
@@ -1583,7 +1576,7 @@ where
 
 	// reset user daily earned
 	fn _reset_daily_earned(who: &T::AccountId) -> DispatchResult {
-		let mut user = Self::find_user(&who);
+		let mut user = Self::find_user(who);
 
 		let user_last_earned_reset_block = user.last_earned_reset_block;
 		let last_daily_earned_reset = LastDailyEarnedReset::<T>::get();
@@ -1648,10 +1641,7 @@ where
 			(4 * vfe.current_ability.durable);
 
 		let p_two = p_two.pow(2) * vfe.level;
-		let total_charge_cost =
-			BalanceOf::<T>::from((p_one + p_two) * charge_num).saturating_mul(T::CostUnit::get());
-
-		total_charge_cost
+		BalanceOf::<T>::from((p_one + p_two) * charge_num).saturating_mul(T::CostUnit::get())
 	}
 
 	// calculate VFE level up costs
@@ -1672,10 +1662,8 @@ where
 		let g = vfe.rarity.growth_points();
 		let n = user.energy_total;
 		let level_up_cost = base_ability + vfe.level * (g - 1) * n;
-		let level_cost =
-			BalanceOf::<T>::from(level_up_cost).saturating_mul(t).saturating_mul(cost_unit);
 
-		level_cost
+		BalanceOf::<T>::from(level_up_cost).saturating_mul(t).saturating_mul(cost_unit)
 	}
 
 	// get VFE charging costs
@@ -1685,11 +1673,10 @@ where
 		charge_num: u16,
 	) -> BalanceOf<T> {
 		let vfe = VFEDetails::<T>::get(brand_id, item);
-		if vfe.is_none() {
-			Zero::zero()
-		} else {
-			let vfe = vfe.unwrap();
+		if let Some(vfe) = vfe {
 			Self::calculate_charging_costs(vfe, charge_num)
+		} else {
+			Zero::zero()
 		}
 	}
 
@@ -1702,9 +1689,9 @@ where
 		let vfe = VFEDetails::<T>::get(brand_id, item);
 		let user = Self::find_user(&who);
 		let vfe_owner = Self::owner(&brand_id, &item);
-		if vfe.is_some() && vfe_owner.is_some() {
-			let vfe_owner = vfe_owner.unwrap();
-			let vfe = vfe.unwrap();
+		if let Some(vfe) = vfe && let Some(vfe_owner) = vfe_owner {
+			// let vfe_owner = vfe_owner.unwrap();
+			// let vfe = vfe.unwrap();
 			if vfe_owner == who {
 				Self::calculate_level_up_costs(&vfe, &user)
 			} else {
