@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::too_many_arguments)]
 
 use frame_support::{
 	pallet_prelude::*,
@@ -223,7 +224,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[allow(clippy::too_many_arguments)]
+	
 		#[transactional]
 		#[pallet::weight(T::WeightInfo::submit_dutch_auction(items.len() as u32))]
 		pub fn submit_dutch_auction(
@@ -496,7 +497,6 @@ pub mod pallet {
 		/// - `items`: Nft list.
 		#[pallet::weight(100_000)]
 		#[transactional]
-		#[allow(clippy::too_many_arguments)]
 		pub fn submit_british_auction(
 			origin: OriginFor<T>,
 			#[pallet::compact] currency_id: CurrencyIdOf<T>,

@@ -1,3 +1,6 @@
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
+
 use hex_literal::hex;
 use jsonrpc_core::serde_json::Map;
 use polket_runtime::{constants::currency::DOLLARS, opaque::SessionKeys, AccountId, ObjectId, AssetsConfig,
@@ -232,18 +235,18 @@ fn testnet_genesis(
 		grandpa: Default::default(),
 		sudo: SudoConfig {
 			// Assign network admin rights.
-			key: Some(root_key.clone()),
+			key: Some(root_key),
 		},
 		assets: AssetsConfig {
 			assets: initial_assets
 				.iter()
 				.enumerate()
-				.map(|(i, x)| (i as ObjectId, x.0.clone(), true, x.1.clone()))
+				.map(|(i, x)| (i as ObjectId, x.0.clone(), true, x.1))
 				.collect::<Vec<_>>(),
 			metadata: initial_assets
 				.iter()
 				.enumerate()
-				.map(|(i, x)| (i as ObjectId, x.2.clone(), x.3.clone(), x.4.clone()))
+				.map(|(i, x)| (i as ObjectId, x.2.clone(), x.3.clone(), x.4))
 				.collect::<Vec<_>>(),
 			accounts: initial_assets
 				.iter()
@@ -324,5 +327,5 @@ fn properties() -> Properties {
 	let mut properties = Map::new();
 	properties.insert("tokenSymbol".into(), "PNT".into());
 	properties.insert("tokenDecimals".into(), 12.into());
-	return properties;
+	properties
 }
