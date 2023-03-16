@@ -2,6 +2,8 @@
 // Copyright (C) 2021-2022 Polket.
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#![allow(clippy::unnecessary_cast)]
+
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -66,7 +68,7 @@ impl SportType {
 	pub fn is_frequency_range(&self, frequency: u16) -> u16 {
 		match self {
 			SportType::JumpRope =>
-				if 80 <= frequency && frequency <= 400 {
+				if (80..=400).contains(&frequency) {
 					1
 				} else {
 					0
@@ -237,17 +239,32 @@ impl TryFrom<Vec<u8>> for JumpRopeTrainingReport {
 	}
 }
 
-impl Into<Vec<u8>> for JumpRopeTrainingReport {
-	fn into(self) -> Vec<u8> {
+// impl Into<Vec<u8>> for JumpRopeTrainingReport {
+// 	fn into(self) -> Vec<u8> {
+// 		let mut bytes: Vec<u8> = Vec::new();
+// 		bytes.extend(self.timestamp.to_le_bytes());
+// 		bytes.extend(self.training_duration.to_le_bytes());
+// 		bytes.extend(self.total_jump_rope_count.to_le_bytes());
+// 		bytes.extend(self.average_speed.to_le_bytes());
+// 		bytes.extend(self.max_speed.to_le_bytes());
+// 		bytes.extend(self.max_jump_rope_count.to_le_bytes());
+// 		bytes.extend(self.interruptions.to_le_bytes());
+// 		bytes.extend(self.jump_rope_duration.to_le_bytes());
+// 		bytes
+// 	}
+// }
+
+impl From<JumpRopeTrainingReport> for Vec<u8> {
+	fn from(report: JumpRopeTrainingReport) -> Self {
 		let mut bytes: Vec<u8> = Vec::new();
-		bytes.extend(self.timestamp.to_le_bytes());
-		bytes.extend(self.training_duration.to_le_bytes());
-		bytes.extend(self.total_jump_rope_count.to_le_bytes());
-		bytes.extend(self.average_speed.to_le_bytes());
-		bytes.extend(self.max_speed.to_le_bytes());
-		bytes.extend(self.max_jump_rope_count.to_le_bytes());
-		bytes.extend(self.interruptions.to_le_bytes());
-		bytes.extend(self.jump_rope_duration.to_le_bytes());
+		bytes.extend(report.timestamp.to_le_bytes());
+		bytes.extend(report.training_duration.to_le_bytes());
+		bytes.extend(report.total_jump_rope_count.to_le_bytes());
+		bytes.extend(report.average_speed.to_le_bytes());
+		bytes.extend(report.max_speed.to_le_bytes());
+		bytes.extend(report.max_jump_rope_count.to_le_bytes());
+		bytes.extend(report.interruptions.to_le_bytes());
+		bytes.extend(report.jump_rope_duration.to_le_bytes());
 		bytes
 	}
 }

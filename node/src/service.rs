@@ -1,5 +1,8 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
+
 use polket_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::{BlockBackend, ExecutorProvider};
 // use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
@@ -67,7 +70,7 @@ pub fn new_partial(
 	ServiceError,
 > {
 	if config.keystore_remote.is_some() {
-		return Err(ServiceError::Other(format!("Remote Keystores are not supported.")))
+		return Err(ServiceError::Other("Remote Keystores are not supported.".to_string()))
 	}
 
 	let telemetry = config
@@ -90,7 +93,7 @@ pub fn new_partial(
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
-			&config,
+			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
 		)?;
@@ -152,7 +155,7 @@ pub fn new_partial(
 	let finality_proof_provider =
 		FinalityProofProvider::new_for_service(backend.clone(), Some(shared_authority_set.clone()));
 
-	let import_setup = (block_import.clone(), grandpa_link, babe_link.clone());
+	let import_setup = (block_import, grandpa_link, babe_link.clone());
 
 	let shared_epoch_changes = babe_link.epoch_changes().clone();
 
@@ -202,7 +205,7 @@ pub fn new_partial(
 	})
 }
 
-fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
+fn remote_keystore(_url: &str) -> Result<Arc<LocalKeystore>, &'static str> {
 	// FIXME: here would the concrete keystore be built,
 	//        must return a concrete type (NOT `LocalKeystore`) that
 	//        implements `CryptoStore` and `SyncCryptoStore`
@@ -301,7 +304,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		let slot_duration = babe_link.config().slot_duration();
 		let babe_config = sc_consensus_babe::BabeParams {
 			keystore: keystore_container.sync_keystore(),
-			client: client.clone(),
+			client,
 			select_chain,
 			block_import,
 			env: proposer_factory,

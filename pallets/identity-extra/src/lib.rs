@@ -76,8 +76,8 @@ pub mod pallet {
 		/// - info Box<IdentityInfo> 身份信息
 		/// - role IdentityRole 身份角色
 		#[pallet::weight( <T as pallet_identity::Config>::WeightInfo::set_identity(
-			T::MaxRegistrars::get().into(), // R
-			T::MaxAdditionalFields::get().into(), // X
+			T::MaxRegistrars::get(), // R
+			T::MaxAdditionalFields::get(), // X
 		))]
 		pub fn set_identity_role(
 			origin: OriginFor<T>,
@@ -100,8 +100,8 @@ pub mod pallet {
 		/// - judgement Judgement 身份裁定级别
 		/// - reason Option<Vec<u8>> 不通过原因
 		#[pallet::weight(<T as pallet_identity::Config>::WeightInfo::provide_judgement(
-			T::MaxRegistrars::get().into(), // R
-			T::MaxAdditionalFields::get().into(), // X
+			T::MaxRegistrars::get(), // R
+			T::MaxAdditionalFields::get(), // X
 		))]
 		#[transactional]
 		pub fn review_identity_role(
@@ -170,12 +170,11 @@ impl<T: Config> IdentitySupport<T::AccountId> for Pallet<T> {
 	fn is_have_relationship(sub: &T::AccountId, parent: &T::AccountId) -> bool {
 		if sub == parent {
 			true
+		} else if let Some(parent_of_sub) = pallet_identity::Pallet::<T>::super_of(sub).map(|x| x.0)
+		{
+			&parent_of_sub == parent
 		} else {
-			if let Some(parent_of_sub) = pallet_identity::Pallet::<T>::super_of(sub).map(|x| x.0) {
-				&parent_of_sub == parent
-			} else {
-				false
-			}
+			false
 		}
 	}
 }
