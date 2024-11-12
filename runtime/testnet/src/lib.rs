@@ -75,7 +75,7 @@ pub mod constants;
 use crate::constants::currency::MILLICENTS;
 use constants::{
 	currency::DOLLARS,
-	id::{ASSET_ID, BUYBACK_PLAN_ID, PRODUCER_ID, VFE_BRAND_ID,ORDER_ID,OFFER_ID},
+	id::{ASSET_ID, BUYBACK_PLAN_ID, OFFER_ID, ORDER_ID, PRODUCER_ID, VFE_BRAND_ID},
 	time::*,
 };
 
@@ -151,7 +151,10 @@ pub struct BaseCallFilter;
 impl Contains<Call> for BaseCallFilter {
 	fn contains(call: &Call) -> bool {
 		if let Call::Assets(assets_method) = call {
-			return !matches!(assets_method, pallet_assets::Call::create { .. } | pallet_assets::Call::force_create { .. })
+			return !matches!(
+				assets_method,
+				pallet_assets::Call::create { .. } | pallet_assets::Call::force_create { .. }
+			)
 		}
 
 		true
@@ -303,8 +306,6 @@ parameter_types! {
 	pub const MetadataDepositPerByte: u64 = 1;
 }
 
-
-
 impl pallet_assets::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Event = Event;
@@ -449,10 +450,10 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
 	// Six sessions in an era (24 hours).
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+	pub const SessionsPerEra: sp_staking::SessionIndex = 1;
 	// 28 eras for unbonding (28 days).
-	pub const BondingDuration: sp_staking::EraIndex = 28;
-	pub const SlashDeferDuration: sp_staking::EraIndex = 27;
+	pub const BondingDuration: sp_staking::EraIndex = 1;
+	pub const SlashDeferDuration: sp_staking::EraIndex = 6;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -471,9 +472,9 @@ impl pallet_staking::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = CurrencyToVote;
-	type RewardRemainder = ();
+	type RewardRemainder = Treasury;
 	type Event = Event;
-	type Slash = ();
+	type Slash = Treasury;
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
@@ -481,7 +482,8 @@ impl pallet_staking::Config for Runtime {
 	// A super-majority of the council can cancel the slash.
 	type SlashCancelOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	// type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = EraPayout;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
@@ -494,24 +496,30 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = ();
 }
 
-
-
-// pub struct EraPayout;
-// impl pallet_staking::EraPayout<Balance> for EraPayout {
-// 	fn era_payout(
-// 		total_staked: Balance,
-// 		total_issuance: Balance,
-// 		era_duration_millis: u64,
-// 	) -> (Balance, Balance) {
-// 		let block_reward_halving_period = 4 * 365 * 24 * 60 * 60 / 6 = 700800u128;
-// 		let blocks_per_era = 10u64;
-// 		let initial_reward = 1_000_000_000u128 * 10u128.pow(8) / (2 * block_reward_halving_period.pow(2));
-//         let era_reward = initial_reward / 2u32.pow((era_duration.saturated_into::<u64>() / blocks_per_era) as u32);
-//         let validator_reward = era_reward / 2u128;
-//         let treasury_reward = era_reward - validator_reward;
-//         (validator_reward.saturated_into(), treasury_reward.saturated_into())
-// 	}
-// }
+pub struct EraPayout;
+impl pallet_staking::EraPayout<Balance> for EraPayout {
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		// let block_reward_halving_period = 4 * 365 * 24 * 60 * 60 / 6; // 每 4 年减半
+		// let blocks_per_era = 10; // 每 10 个区块奖励一次
+		// let initial_reward = Balance::from(1_000_000_000u128 * 10u128.pow(8)); // 初始奖励数量
+		// let era_reward = initial_reward / (2 * (block_reward_halving_period as u128).pow(2)); //
+		// 本 era 的奖励数量 let era_reward_per_block = era_reward / (blocks_per_era as u128); //
+		// 每个区块的奖励数量 let era_duration_millis = BigUint::from(era_duration_millis);
+		// let blocks_per_era = BigUint::from(blocks_per_era);
+		// let era_duration_blocks = (era_duration_millis * blocks_per_era) / 1000u64; // 将
+		// era_duration 的单位从毫秒转换为区块数 																	// 使用 num 库进行幂运算
+		// let two = BigUint::from(2u32);
+		// let era_duration_pow = two.pow(era_duration_blocks.to_usize().unwrap() as u32);
+		// let validator_reward = era_reward_per_block / 2u128;
+		// let treasury_reward = era_reward_per_block - validator_reward;
+		// (validator_reward.saturated_into(), treasury_reward.saturated_into())
+		(25 * DOLLARS, 25 * DOLLARS)
+	}
+}
 
 parameter_types! {
 	pub const StartId: ObjectId = 1;
@@ -722,7 +730,6 @@ impl pallet_vfe_order::Config for Runtime {
 	type PalletId = VFEOrderPalletId;
 	type OrderId = OrderId;
 	type OfferId = OfferId;
-
 }
 
 parameter_types! {

@@ -1,3 +1,5 @@
+![w3f-grants](./docs/images/w3f-grants.svg)
+
 # Polket Node
 
 The goal of Polket is to create more commercial application scenarios for NFTs and connect to the Polkadot/Kusama network in a parachain manner. Based on the Polket chain, we will develop a smart fitness-type Web3 application. We will name it `ToEarnFun`.
